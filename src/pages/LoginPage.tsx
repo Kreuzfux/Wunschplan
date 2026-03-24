@@ -32,8 +32,13 @@ export function LoginPage() {
     setError(null);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      setLoading(false);
+      const loginResult = await Promise.race([
+        supabase.auth.signInWithPassword({ email, password }),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error("timeout")), 12000);
+        }),
+      ]);
+      const { error: signInError } = loginResult;
 
       if (signInError) {
         setError(signInError.message);
@@ -43,8 +48,9 @@ export function LoginPage() {
       // Route after sign-in; LoginPage effect handles delayed session propagation.
       navigate("/", { replace: true });
     } catch {
+      setError("Anmeldung hat zu lange gedauert. Bitte erneut versuchen oder 'Lokale Daten zurücksetzen' klicken.");
+    } finally {
       setLoading(false);
-      setError("Anmeldung fehlgeschlagen. Bitte erneut versuchen.");
     }
   }
 
