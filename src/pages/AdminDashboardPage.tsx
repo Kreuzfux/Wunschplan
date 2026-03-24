@@ -44,6 +44,7 @@ const MONTH_OPTIONS = [
 
 export function AdminDashboardPage() {
   const { signOut, profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
   const isSuperuser = profile?.role === "superuser";
   const now = new Date();
   const [plans, setPlans] = useState<MonthlyPlan[]>([]);
@@ -132,6 +133,12 @@ export function AdminDashboardPage() {
     void reloadTeams();
     void reloadProfiles();
   }, []);
+
+  useEffect(() => {
+    if (isSuperuser && profile?.team_id) {
+      setSubmissionTeamFilter(profile.team_id);
+    }
+  }, [isSuperuser, profile?.team_id]);
 
   useEffect(() => {
     if (!plans.length) return;
@@ -482,8 +489,9 @@ export function AdminDashboardPage() {
               className="ml-2 rounded border px-2 py-1"
               value={submissionTeamFilter}
               onChange={(e) => setSubmissionTeamFilter(e.target.value)}
+              disabled={isSuperuser}
             >
-              <option value="all">Alle Teams</option>
+              {!isSuperuser ? <option value="all">Alle Teams</option> : null}
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>
                   {team.name}
@@ -502,7 +510,7 @@ export function AdminDashboardPage() {
         </div>
       </section>
 
-      {isSuperuser ? (
+      {isAdmin ? (
         <section className="mt-4 grid gap-4 md:grid-cols-2">
           <div className="rounded-xl bg-white p-4 shadow">
             <h2 className="font-medium">Teams verwalten</h2>

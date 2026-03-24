@@ -41,7 +41,6 @@ serve(async (req) => {
     const email = authData.user.email?.toLowerCase() ?? "";
     const canGenerate =
       profile?.role === "admin" ||
-      profile?.role === "superuser" ||
       authData.user.id === ADMIN_USER_ID ||
       email === ADMIN_EMAIL;
     if (!canGenerate) {

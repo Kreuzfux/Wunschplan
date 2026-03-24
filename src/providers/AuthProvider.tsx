@@ -11,8 +11,8 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-const SUPERUSER_EMAIL = "nitzschkepa@yahoo.de";
-const SUPERUSER_USER_ID = "b6210438-2ad6-4387-b4d6-99ba8f87cd76";
+const ADMIN_EMAIL = "nitzschkepa@yahoo.de";
+const ADMIN_USER_ID = "b6210438-2ad6-4387-b4d6-99ba8f87cd76";
 const SUPABASE_PROJECT_REF = "qfmffiybblqrejilwsng";
 
 function clearSupabaseAuthStorage() {
@@ -39,8 +39,8 @@ function buildFallbackProfile(session: Session): Profile {
     email,
     full_name: fullName,
     role:
-      session.user.id === SUPERUSER_USER_ID || email.toLowerCase() === SUPERUSER_EMAIL
-        ? "superuser"
+      session.user.id === ADMIN_USER_ID || email.toLowerCase() === ADMIN_EMAIL
+        ? "admin"
         : "employee",
     team_id: null,
     has_drivers_license: Boolean(session.user.user_metadata?.has_drivers_license),
