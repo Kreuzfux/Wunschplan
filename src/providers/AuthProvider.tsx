@@ -13,6 +13,21 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const ADMIN_EMAIL = "nitzschkepa@yahoo.de";
 const ADMIN_USER_ID = "b6210438-2ad6-4387-b4d6-99ba8f87cd76";
+const SUPABASE_PROJECT_REF = "qfmffiybblqrejilwsng";
+
+function clearSupabaseAuthStorage() {
+  const authKeyParts = ["supabase.auth.token", SUPABASE_PROJECT_REF, "sb-"];
+  const clearFromStorage = (storage: Storage) => {
+    Object.keys(storage).forEach((key) => {
+      if (authKeyParts.some((part) => key.includes(part))) {
+        storage.removeItem(key);
+      }
+    });
+  };
+
+  clearFromStorage(localStorage);
+  clearFromStorage(sessionStorage);
+}
 
 function buildFallbackProfile(session: Session): Profile {
   const email = session.user.email ?? "";
@@ -38,18 +53,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      setSession(data.session);
-      if (data.session?.user.id) {
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", data.session.user.id)
-          .maybeSingle();
-        setProfile(profileData ?? buildFallbackProfile(data.session));
+    async function initializeAuth() {
+      try {
+        const {
+          data: { session: initialSession },
+        } = await supabase.auth.getSession();
+
+        if (initialSession) {
+          const {
+            data: { user },
+            error: userError,
+          } = await supabase.auth.getUser();
+          if (userError || !user) {
+            await supabase.auth.signOut({ scope: "local" });
+            clearSupabaseAuthStorage();
+            setSession(null);
+            setProfile(null);
+            setLoading(false);
+            return;
+          }
+        }
+
+        setSession(initialSession);
+        if (initialSession?.user.id) {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", initialSession.user.id)
+            .maybeSingle();
+          setProfile(profileData ?? buildFallbackProfile(initialSession));
+        } else {
+          setProfile(null);
+        }
+      } catch {
+        await supabase.auth.signOut({ scope: "local" });
+        clearSupabaseAuthStorage();
+        setSession(null);
+        setProfile(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    }
+
+    void initializeAuth();
 
     const { data } = supabase.auth.onAuthStateChange(async (_, newSession) => {
       setSession(newSession);
