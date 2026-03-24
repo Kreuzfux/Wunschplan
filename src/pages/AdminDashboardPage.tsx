@@ -10,9 +10,9 @@ import { useAuth } from "@/providers/AuthProvider";
 interface SubmissionRow {
   employee_id: string;
   is_submitted: boolean;
-  profiles?: {
+  profiles?: Array<{
     full_name: string;
-  } | null;
+  }> | null;
 }
 
 interface ShiftTypeOverrideRow {
@@ -402,7 +402,7 @@ export function AdminDashboardPage() {
           <ul className="mt-2 space-y-2 text-sm">
             {submissions.map((submission) => (
               <li key={submission.employee_id} className="rounded border p-2">
-                {(submission.profiles?.full_name ?? submission.employee_id)}: {submission.is_submitted ? "Eingereicht" : "Offen"}
+                {(submission.profiles?.[0]?.full_name ?? submission.employee_id)}: {submission.is_submitted ? "Eingereicht" : "Offen"}
               </li>
             ))}
             {!submissions.length ? <li className="text-slate-500">Keine Einträge.</li> : null}
