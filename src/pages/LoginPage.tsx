@@ -24,6 +24,27 @@ export function LoginPage() {
     navigate("/dashboard");
   }
 
+  async function handleResetLocalData() {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore signout errors and continue with local cleanup.
+    }
+
+    localStorage.clear();
+    sessionStorage.clear();
+
+    document.cookie.split(";").forEach((cookie) => {
+      const eqPos = cookie.indexOf("=");
+      const name = eqPos > -1 ? cookie.slice(0, eqPos).trim() : cookie.trim();
+      if (!name) return;
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/Wunschplan`;
+    });
+
+    window.location.replace("/Wunschplan/#/login?reset=1");
+  }
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md items-center px-4">
       <form onSubmit={handleSubmit} className="w-full space-y-4 rounded-xl bg-white p-6 shadow">
@@ -39,6 +60,9 @@ export function LoginPage() {
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <button className="w-full rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-60" disabled={loading} type="submit">
           {loading ? "Anmeldung läuft..." : "Einloggen"}
+        </button>
+        <button className="w-full rounded border px-4 py-2 text-sm" onClick={() => void handleResetLocalData()} type="button">
+          Lokale Daten zurücksetzen
         </button>
         <p className="text-sm">
           Noch kein Konto? <Link className="text-blue-700 underline" to="/register">Registrieren</Link>
