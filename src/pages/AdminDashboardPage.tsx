@@ -54,6 +54,10 @@ export function AdminDashboardPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [submissionTeamFilter, setSubmissionTeamFilter] = useState("all");
   const [newTeamName, setNewTeamName] = useState("");
+  const [newShiftName, setNewShiftName] = useState("");
+  const [newShiftStart, setNewShiftStart] = useState("08:00");
+  const [newShiftEnd, setNewShiftEnd] = useState("16:00");
+  const [newShiftColor, setNewShiftColor] = useState("#3B82F6");
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [shiftEditorPlanId, setShiftEditorPlanId] = useState<string | null>(null);
   const [editableShiftTimes, setEditableShiftTimes] = useState<EditableShiftTime[]>([]);
@@ -270,12 +274,17 @@ export function AdminDashboardPage() {
 
   async function saveShiftTimeOverride(item: EditableShiftTime) {
     if (!shiftEditorPlanId) return;
-    const { error } = await supabase.from("shift_type_overrides").upsert({
-      monthly_plan_id: shiftEditorPlanId,
-      shift_type_id: item.shiftTypeId,
-      override_start_time: item.start,
-      override_end_time: item.end,
-    });
+    const { error } = await supabase.from("shift_type_overrides").upsert(
+      {
+        monthly_plan_id: shiftEditorPlanId,
+        shift_type_id: item.shiftTypeId,
+        override_start_time: item.start,
+        override_end_time: item.end,
+      },
+      {
+        onConflict: "monthly_plan_id,shift_type_id",
+      },
+    );
     setNotice(error ? error.message : `Schichtzeit fuer '${item.name}' gespeichert.`);
   }
 
@@ -283,6 +292,36 @@ export function AdminDashboardPage() {
     const { error } = await supabase.from("shift_types").update({ is_active: false }).eq("id", shiftTypeId);
     setNotice(error ? error.message : `Schicht '${shiftName}' wurde geloescht.`);
     if (!error) {
+      await reloadShifts();
+    }
+  }
+
+  async function createShiftType() {
+    const trimmedName = newShiftName.trim();
+    if (!trimmedName) {
+      setNotice("Bitte einen Namen für die neue Schicht eingeben.");
+      return;
+    }
+    if (!newShiftStart || !newShiftEnd) {
+      setNotice("Bitte Start- und Endzeit für die neue Schicht wählen.");
+      return;
+    }
+
+    const maxSortOrder = shifts.reduce((max, shift) => Math.max(max, shift.sort_order ?? 0), 0);
+    const { error } = await supabase.from("shift_types").insert({
+      name: trimmedName,
+      default_start_time: newShiftStart,
+      default_end_time: newShiftEnd,
+      color: newShiftColor || "#3B82F6",
+      sort_order: maxSortOrder + 1,
+      is_active: true,
+    });
+    setNotice(error ? error.message : `Schicht '${trimmedName}' wurde erstellt.`);
+    if (!error) {
+      setNewShiftName("");
+      setNewShiftStart("08:00");
+      setNewShiftEnd("16:00");
+      setNewShiftColor("#3B82F6");
       await reloadShifts();
     }
   }
@@ -431,6 +470,50 @@ export function AdminDashboardPage() {
         <div className="rounded-xl bg-white p-4 shadow">
           <h2 className="font-medium">Schichtzeiten pro Monat</h2>
           <p className="mt-1 text-sm text-slate-600">Diese Zeiten sehen Mitarbeiter bei der Wunschplanung.</p>
+          <div className="mt-3 rounded border p-3">
+            <h3 className="font-medium">Neue Schicht erstellen</h3>
+            <div className="mt-2 flex flex-wrap items-end gap-2 text-sm">
+              <label>
+                Name
+                <input
+                  className="ml-2 rounded border px-2 py-1"
+                  placeholder="z. B. Nachtschicht"
+                  value={newShiftName}
+                  onChange={(e) => setNewShiftName(e.target.value)}
+                />
+              </label>
+              <label>
+                Start
+                <input
+                  className="ml-2 rounded border px-2 py-1"
+                  type="time"
+                  value={newShiftStart}
+                  onChange={(e) => setNewShiftStart(e.target.value)}
+                />
+              </label>
+              <label>
+                Ende
+                <input
+                  className="ml-2 rounded border px-2 py-1"
+                  type="time"
+                  value={newShiftEnd}
+                  onChange={(e) => setNewShiftEnd(e.target.value)}
+                />
+              </label>
+              <label>
+                Farbe
+                <input
+                  className="ml-2 h-9 w-10 rounded border p-1 align-middle"
+                  type="color"
+                  value={newShiftColor}
+                  onChange={(e) => setNewShiftColor(e.target.value)}
+                />
+              </label>
+              <button className="rounded border px-3 py-1" onClick={() => void createShiftType()}>
+                Schicht anlegen
+              </button>
+            </div>
+          </div>
           <label className="mt-3 block text-sm">
             Monat fuer Schichtzeiten
             <select
@@ -537,43 +620,54 @@ export function AdminDashboardPage() {
 
           <div className="rounded-xl bg-white p-4 shadow">
             <h2 className="font-medium">Benutzer verwalten</h2>
-            <ul className="mt-2 space-y-2 text-sm">
-              {profiles.map((member) => (
-                <li key={member.id} className="rounded border p-2">
-                  <div className="font-medium">{member.full_name}</div>
-                  <div className="text-xs text-slate-500">{member.email}</div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <label>
-                      Rolle
-                      <select
-                        className="ml-2 rounded border px-2 py-1"
-                        value={member.role}
-                        onChange={(e) => void updateUserRole(member.id, e.target.value as UserRole)}
-                      >
-                        <option value="employee">Mitarbeiter</option>
-                        <option value="admin">Admin</option>
-                        <option value="superuser">Superuser</option>
-                      </select>
-                    </label>
-                    <label>
-                      Team
-                      <select
-                        className="ml-2 rounded border px-2 py-1"
-                        value={member.team_id ?? ""}
-                        onChange={(e) => void updateUserTeam(member.id, e.target.value || null)}
-                      >
-                        {teams.map((team) => (
-                          <option key={team.id} value={team.id}>
-                            {team.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                </li>
-              ))}
-              {!profiles.length ? <li className="text-slate-500">Keine Benutzer gefunden.</li> : null}
-            </ul>
+            {(["admin", "superuser", "employee"] as UserRole[]).map((role) => {
+              const members = profiles.filter((profileItem) => profileItem.role === role);
+              const roleTitle =
+                role === "admin" ? "Admins" : role === "superuser" ? "Superuser" : "Mitarbeiter";
+              return (
+                <div key={role} className="mt-3">
+                  <h3 className="mb-2 font-medium">{roleTitle}</h3>
+                  <ul className="space-y-2 text-sm">
+                    {members.map((member) => (
+                      <li key={member.id} className="rounded border p-2">
+                        <div className="font-medium">{member.full_name}</div>
+                        <div className="text-xs text-slate-500">{member.email}</div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <label>
+                            Rolle
+                            <select
+                              className="ml-2 rounded border px-2 py-1"
+                              value={member.role}
+                              onChange={(e) => void updateUserRole(member.id, e.target.value as UserRole)}
+                            >
+                              <option value="employee">Mitarbeiter</option>
+                              <option value="admin">Admin</option>
+                              <option value="superuser">Superuser</option>
+                            </select>
+                          </label>
+                          <label>
+                            Team
+                            <select
+                              className="ml-2 rounded border px-2 py-1"
+                              value={member.team_id ?? ""}
+                              onChange={(e) => void updateUserTeam(member.id, e.target.value || null)}
+                            >
+                              {teams.map((team) => (
+                                <option key={team.id} value={team.id}>
+                                  {team.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                      </li>
+                    ))}
+                    {!members.length ? <li className="text-slate-500">Keine Einträge.</li> : null}
+                  </ul>
+                </div>
+              );
+            })}
+            {!profiles.length ? <p className="mt-2 text-sm text-slate-500">Keine Benutzer gefunden.</p> : null}
           </div>
         </section>
       ) : null}
