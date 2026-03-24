@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays, endOfMonth, format, isSameMonth, startOfMonth } from "date-fns";
 import { de } from "date-fns/locale";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/providers/AuthProvider";
 import { useMonthlyPlan } from "@/hooks/useMonthlyPlan";
 import { supabase } from "@/lib/supabase";
@@ -66,9 +67,16 @@ export function EmployeeDashboardPage() {
           <h1 className="text-2xl font-semibold">Mitarbeiter-Dashboard</h1>
           <p className="text-sm text-slate-600">Willkommen, {profile?.full_name}</p>
         </div>
-        <button className="rounded border px-3 py-2 text-sm" onClick={() => void signOut()}>
-          Ausloggen
-        </button>
+        <div className="flex items-center gap-2">
+          {profile?.role === "admin" ? (
+            <Link className="rounded border px-3 py-2 text-sm" to="/admin">
+              Zum Adminbereich
+            </Link>
+          ) : null}
+          <button className="rounded border px-3 py-2 text-sm" onClick={() => void signOut()}>
+            Ausloggen
+          </button>
+        </div>
       </header>
 
       {!plan ? (

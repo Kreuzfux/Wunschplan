@@ -19,10 +19,19 @@ function AdminRoute({ children }: { children: JSX.Element }) {
   return children;
 }
 
+function HomeRoute() {
+  const { session, profile, loading } = useAuth();
+  if (loading) return <div className="p-6">Lade Benutzer...</div>;
+  if (!session) return <Navigate to="/login" replace />;
+  if (profile?.role === "admin") return <Navigate to="/admin" replace />;
+  return <Navigate to="/dashboard" replace />;
+}
+
 export default function App() {
   return (
     <HashRouter>
       <Routes>
+        <Route path="/" element={<HomeRoute />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route
@@ -43,7 +52,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<HomeRoute />} />
       </Routes>
     </HashRouter>
   );
