@@ -8,8 +8,8 @@ const supabaseAnonKey = rawSupabaseAnonKey?.trim();
 // Do not crash the entire SPA on missing build-time vars.
 // This keeps GitHub Pages from showing a white screen and surfaces
 // a clear config issue in the browser console instead.
-const fallbackUrl = "https://example.supabase.co";
-const fallbackAnonKey = "public-anon-key-placeholder";
+const fallbackUrl = "https://qfmffiybblqrejilwsng.supabase.co";
+const fallbackAnonKey = "sb_publishable_exvJ1uH-GjMUL8yrtyqlMw_JpOhoroX";
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error(
