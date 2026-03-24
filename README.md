@@ -1,31 +1,56 @@
-# Pflegedienst Schichtplanung (Wunschplan)
+# Wunschplan - Bedienungsanleitung
 
-React SPA fuer Wunschdienstplanung mit Supabase, GitHub Pages und Edge Functions.
+Diese Anwendung dient zur Wunschdienstplanung und Schichtverwaltung im Pflegedienst.
 
-## Setup
+## App aufrufen
 
-1. Node.js 20+ installieren.
-2. Abhaengigkeiten installieren:
-   - `npm install`
-3. `.env.example` nach `.env` kopieren und Werte setzen.
-4. Dev-Server starten:
-   - `npm run dev`
+- URL: `https://kreuzfux.github.io/Wunschplan/`
+- Anmeldung: `/#/login`
+- Registrierung: `/#/register`
 
-## Deployment
+## Rollen
 
-- `vite.config.ts` nutzt `base: "/Wunschplan/"` fuer GitHub Pages.
-- Workflow: `.github/workflows/deploy.yml`
-- Benoetigte Secrets:
-  - `VITE_SUPABASE_URL`
-  - `VITE_SUPABASE_ANON_KEY`
+- **Mitarbeiter**: Wunschdienste eintragen und einreichen.
+- **Admin**: Monatsplan verwalten, Abgabestatus sehen, Dienstplan generieren und exportieren.
 
-## Supabase
+## Anmeldung und Registrierung
 
-- Migration: `supabase/migrations/20260324070000_initial_schema.sql`
-- Edge Function: `supabase/functions/generate-schedule/index.ts`
+- Registriere dich mit Name, E-Mail und Passwort.
+- Nach der Registrierung E-Mail bestaetigen (falls aktiv).
+- Anschliessend auf der Login-Seite anmelden.
 
-## Hinweise
+### Wenn Login klemmt
 
-- Routing laeuft mit `HashRouter`.
-- RLS ist zwingend erforderlich, da der Anon Key im Browser verwendet wird.
-- Der Admin-Algorithmus ist als Basisversion implementiert und kann um Ruhezeiten/weitere Regeln erweitert werden.
+- Auf der Login-Seite den Button **Lokale Daten zuruecksetzen** klicken.
+- Danach neu anmelden.
+- Die App zeigt eine Rueckmeldung an, wenn die Daten erfolgreich zurueckgesetzt wurden.
+
+## Mitarbeiter: Wunschplan eintragen
+
+1. Dashboard oeffnen.
+2. Tag im Monatskalender anklicken.
+3. Bemerkung eintragen (z. B. "ab 12 Uhr", "nur mit Fuehrerschein").
+4. **Wunsch speichern** klicken.
+5. Wenn alles fertig ist: **Wunschplan einreichen**.
+
+## Admin: Monatsplan verwalten
+
+1. Admin-Bereich oeffnen (`/#/admin`).
+2. **Aktuellen Monat anlegen**.
+3. Status auf **open** setzen.
+4. Abgabestatus der Mitarbeiter pruefen.
+5. **Generieren** klicken, um den Dienstplan automatisch zu erstellen.
+6. Bei Bedarf manuell anpassen.
+7. Status auf **published** setzen.
+
+## Export
+
+Im Admin-Bereich kann der Dienstplan exportiert werden:
+
+- **PDF**
+- **Excel**
+
+## Hinweise fuer die Nutzung
+
+- Bei Darstellungsproblemen Seite mit `Strg+F5` neu laden.
+- Wenn du trotz korrekter Daten nicht einloggen kannst: zuerst **Lokale Daten zuruecksetzen** verwenden.
