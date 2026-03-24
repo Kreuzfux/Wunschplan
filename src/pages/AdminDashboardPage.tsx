@@ -215,6 +215,10 @@ export function AdminDashboardPage() {
   }, [shiftEditorPlanId, shifts]);
 
   async function createSelectedMonthPlan() {
+    if (!isAdmin) {
+      setNotice("Nur Admins dürfen neue Monate anlegen.");
+      return;
+    }
     if (!Number.isInteger(planMonth) || planMonth < 1 || planMonth > 12 || !Number.isInteger(planYear)) {
       setNotice("Bitte gueltigen Monat (1-12) und ein gueltiges Jahr eingeben.");
       return;
@@ -238,12 +242,20 @@ export function AdminDashboardPage() {
   }
 
   async function updatePlanStatus(id: string, status: MonthlyPlan["status"]) {
+    if (!isAdmin) {
+      setNotice("Nur Admins dürfen den Monatsstatus ändern.");
+      return;
+    }
     const { error } = await supabase.from("monthly_plans").update({ status }).eq("id", id);
     setNotice(error ? error.message : `Status auf '${status}' gesetzt.`);
     if (!error) await reloadPlans();
   }
 
   async function triggerGeneration(planId: string) {
+    if (!isAdmin) {
+      setNotice("Nur Admins dürfen die Generierung starten.");
+      return;
+    }
     const { error } = await supabase.functions.invoke("generate-schedule", {
       body: { monthly_plan_id: planId },
     });
@@ -438,7 +450,11 @@ export function AdminDashboardPage() {
               ))}
             </select>
           </label>
-          <button className="rounded bg-slate-900 px-4 py-2 text-sm text-white" onClick={() => void createSelectedMonthPlan()}>
+          <button
+            className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
+            disabled={!isAdmin}
+            onClick={() => void createSelectedMonthPlan()}
+          >
             Monat anlegen
           </button>
         </div>
@@ -460,6 +476,7 @@ export function AdminDashboardPage() {
                     <button
                       className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
                       title="Setzt den Monat auf 'open', damit Mitarbeiter ihre Wuensche eintragen koennen."
+                      disabled={!isAdmin}
                       onClick={() => void updatePlanStatus(plan.id, "open")}
                     >
                       Open
@@ -467,6 +484,7 @@ export function AdminDashboardPage() {
                     <button
                       className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
                       title="Setzt den Monat auf 'closed' und verhindert weitere Eintraege."
+                      disabled={!isAdmin}
                       onClick={() => void updatePlanStatus(plan.id, "closed")}
                     >
                       Close
@@ -474,6 +492,7 @@ export function AdminDashboardPage() {
                     <button
                       className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
                       title="Startet die automatische Dienstplan-Generierung fuer den ausgewaehlten Monat."
+                      disabled={!isAdmin}
                       onClick={() => void triggerGeneration(plan.id)}
                     >
                       Generieren
@@ -481,6 +500,7 @@ export function AdminDashboardPage() {
                     <button
                       className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
                       title="Veroeffentlicht den Plan, damit Mitarbeiter den finalen Dienstplan sehen."
+                      disabled={!isAdmin}
                       onClick={() => void updatePlanStatus(plan.id, "published")}
                     >
                       Publizieren
