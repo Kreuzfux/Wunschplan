@@ -5,11 +5,29 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/providers/AuthProvider";
 import { useMonthlyPlan } from "@/hooks/useMonthlyPlan";
 import { supabase } from "@/lib/supabase";
+import type { ShiftType } from "@/types";
+
+interface ShiftTypeOverrideRow {
+  shift_type_id: string;
+  override_start_time: string;
+  override_end_time: string;
+}
+
+interface DisplayShift {
+  id: string;
+  name: string;
+  defaultStart: string;
+  defaultEnd: string;
+  start: string;
+  end: string;
+}
 
 export function EmployeeDashboardPage() {
   const { profile, signOut } = useAuth();
   const { plan, loading } = useMonthlyPlan();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [shifts, setShifts] = useState<DisplayShift[]>([]);
+  const [selectedShiftTypeId, setSelectedShiftTypeId] = useState<string | null>(null);
   const [remarks, setRemarks] = useState("");
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
@@ -23,23 +41,75 @@ export function EmployeeDashboardPage() {
   }, [plan]);
 
   useEffect(() ***REMOVED*** {
+    supabase
+      .from("shift_types")
+      .select("*")
+      .order("sort_order")
+      .then(({ data }) ***REMOVED*** {
+        const baseShifts = (data ?? []) as ShiftType[];
+        setShifts(
+          baseShifts.map((shift) ***REMOVED*** ({
+            id: shift.id,
+            name: shift.name,
+            defaultStart: shift.default_start_time,
+            defaultEnd: shift.default_end_time,
+            start: shift.default_start_time,
+            end: shift.default_end_time,
+          })),
+        );
+      });
+  }, []);
+
+  useEffect(() ***REMOVED*** {
+    if (!plan || !shifts.length) return;
+    supabase
+      .from("shift_type_overrides")
+      .select("shift_type_id,override_start_time,override_end_time")
+      .eq("monthly_plan_id", plan.id)
+      .then(({ data }) ***REMOVED*** {
+        const overrides = (data ?? []) as ShiftTypeOverrideRow[];
+        const overrideMap = new Map(overrides.map((item) ***REMOVED*** [item.shift_type_id, item]));
+        setShifts((prev) ***REMOVED***
+          prev.map((shift) ***REMOVED*** {
+            const override = overrideMap.get(shift.id);
+            return {
+              ...shift,
+              start: override?.override_start_time ?? shift.defaultStart,
+              end: override?.override_end_time ?? shift.defaultEnd,
+            };
+          }),
+        );
+      });
+  }, [plan, shifts.length]);
+
+  useEffect(() ***REMOVED*** {
     if (!selectedDate || !plan || !profile) return;
     supabase
       .from("shift_wishes")
-      .select("remarks")
+      .select("remarks,shift_type_id")
       .eq("monthly_plan_id", plan.id)
       .eq("employee_id", profile.id)
       .eq("date", selectedDate)
       .maybeSingle()
-      .then(({ data }) ***REMOVED*** setRemarks(data?.remarks ?? ""));
+      .then(({ data }) ***REMOVED*** {
+        setRemarks(data?.remarks ?? "");
+        setSelectedShiftTypeId(data?.shift_type_id ?? null);
+      });
   }, [plan, profile, selectedDate]);
 
   async function saveWish() {
-    if (!selectedDate || !plan || !profile) return;
-    await supabase.from("shift_wishes").upsert({
+    if (!selectedDate || !plan || !profile || !selectedShiftTypeId) return;
+    await supabase
+      .from("shift_wishes")
+      .delete()
+      .eq("monthly_plan_id", plan.id)
+      .eq("employee_id", profile.id)
+      .eq("date", selectedDate);
+    await supabase.from("shift_wishes").insert({
       monthly_plan_id: plan.id,
       employee_id: profile.id,
       date: selectedDate,
+      shift_type_id: selectedShiftTypeId,
       wish_type: "available",
       remarks,
     });
@@ -87,7 +157,8 @@ export function EmployeeDashboardPage() {
             <h2 className="text-lg font-medium">
               Wunschplanung {format(new Date(plan.year, plan.month - 1, 1), "MMMM yyyy", { locale: de })}
             </h2>
-            <p className="text-sm text-slate-600">Tippe einen Tag an, um Wunschdienst und Bemerkung zu erfassen.</p>
+            <p className="text-sm text-slate-600">Mitarbeiter: {profile?.full_name}</p>
+            <p className="text-sm text-slate-600">Tippe einen Tag an, um Schicht und Bemerkung zu erfassen.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-4 shadow sm:grid-cols-4 md:grid-cols-7">
@@ -110,7 +181,25 @@ export function EmployeeDashboardPage() {
           {selectedDate && isSameMonth(new Date(selectedDate), new Date(plan.year, plan.month - 1, 1)) ? (
             <div className="rounded-xl bg-white p-4 shadow">
               <h3 className="font-medium">Eintrag für {format(new Date(selectedDate), "PPPP", { locale: de })}</h3>
-              <p className="mt-1 text-sm text-slate-600">Schichtslots können im Adminbereich angepasst werden.</p>
+              <p className="mt-1 text-sm text-slate-600">Waehle die Schichtzeit, die der Admin freigegeben hat.</p>
+              <div className="mt-3 space-y-2">
+                {shifts.map((shift) ***REMOVED*** (
+                  <label key={shift.id} className="flex items-center justify-between rounded border p-2 text-sm">
+                    <span className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="shift-type"
+                        checked={selectedShiftTypeId ***REMOVED*** shift.id}
+                        onChange={() ***REMOVED*** setSelectedShiftTypeId(shift.id)}
+                      />
+                      {shift.name}
+                    </span>
+                    <span className="text-slate-600">
+                      {shift.start} - {shift.end}
+                    </span>
+                  </label>
+                ))}
+              </div>
               <textarea
                 aria-label="Bemerkungen"
                 className="mt-3 w-full rounded border p-3"
@@ -120,7 +209,11 @@ export function EmployeeDashboardPage() {
                 onChange={(e) ***REMOVED*** setRemarks(e.target.value)}
               />
               <div className="mt-3 flex gap-2">
-                <button className="rounded bg-slate-900 px-4 py-2 text-sm text-white" onClick={() ***REMOVED*** void saveWish()}>
+                <button
+                  className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
+                  disabled={!selectedShiftTypeId}
+                  onClick={() ***REMOVED*** void saveWish()}
+                >
                   Wunsch speichern
                 </button>
                 <button className="rounded border px-4 py-2 text-sm" onClick={() ***REMOVED*** void submitPlan()}>
