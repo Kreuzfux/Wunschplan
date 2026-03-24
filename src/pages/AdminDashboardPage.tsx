@@ -151,7 +151,16 @@ export function AdminDashboardPage() {
     const { error } = await supabase.functions.invoke("generate-schedule", {
       body: { monthly_plan_id: planId },
     });
-    setNotice(error ? error.message : "Dienstplan-Generierung gestartet.");
+    if (error) {
+      const normalized = error.message.toLowerCase();
+      if (normalized.includes("failed to send a request")) {
+        setNotice("Edge Function nicht erreichbar. Bitte Deployment und CORS der Funktion 'generate-schedule' pruefen.");
+      } else {
+        setNotice(error.message);
+      }
+      return;
+    }
+    setNotice("Dienstplan-Generierung gestartet.");
   }
 
   async function handleExport(planId: string) {

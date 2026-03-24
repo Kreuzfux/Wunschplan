@@ -1,7 +1,17 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -10,21 +20,44 @@ serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization");
     const token = authHeader?.replace("Bearer ", "");
-    if (!token) return new Response(JSON.stringify({ error: "Kein Auth-Token." }), { status: 401 });
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Kein Auth-Token." }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: authData, error: authError } = await adminClient.auth.getUser(token);
-    if (authError || !authData.user) return new Response(JSON.stringify({ error: "Nicht autorisiert." }), { status: 401 });
+    if (authError || !authData.user) {
+      return new Response(JSON.stringify({ error: "Nicht autorisiert." }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: profile } = await adminClient.from("profiles").select("role").eq("id", authData.user.id).single();
     if (profile?.role !== "admin") {
-      return new Response(JSON.stringify({ error: "Nur Admins dürfen generieren." }), { status: 403 });
+      return new Response(JSON.stringify({ error: "Nur Admins dürfen generieren." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const { monthly_plan_id } = await req.json();
-    if (!monthly_plan_id) return new Response(JSON.stringify({ error: "monthly_plan_id fehlt." }), { status: 400 });
+    if (!monthly_plan_id) {
+      return new Response(JSON.stringify({ error: "monthly_plan_id fehlt." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: plan } = await adminClient.from("monthly_plans").select("id,min_staff_per_shift").eq("id", monthly_plan_id).single();
-    if (!plan) return new Response(JSON.stringify({ error: "Monatsplan nicht gefunden." }), { status: 404 });
+    if (!plan) {
+      return new Response(JSON.stringify({ error: "Monatsplan nicht gefunden." }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: wishes } = await adminClient
       .from("shift_wishes")
@@ -67,9 +100,12 @@ serve(async (req) => {
     await adminClient.from("monthly_plans").update({ status: "generated" }).eq("id", monthly_plan_id);
 
     return new Response(JSON.stringify({ success: true, created: inserts.length }), {
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    return new Response(JSON.stringify({ error: String(error) }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
