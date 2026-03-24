@@ -1,0 +1,49 @@
+import { FormEvent, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
+
+export function LoginPage() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+
+    if (signInError) {
+      setError(signInError.message);
+      return;
+    }
+    navigate("/dashboard");
+  }
+
+  return (
+    <main className="mx-auto flex min-h-screen max-w-md items-center px-4">
+      <form onSubmit={handleSubmit} className="w-full space-y-4 rounded-xl bg-white p-6 shadow">
+        <h1 className="text-2xl font-semibold">Anmeldung</h1>
+        <label className="block">
+          <span className="mb-1 block text-sm">E-Mail</span>
+          <input className="w-full rounded border px-3 py-2" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm">Passwort</span>
+          <input className="w-full rounded border px-3 py-2" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        </label>
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        <button className="w-full rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-60" disabled={loading} type="submit">
+          {loading ? "Anmeldung läuft..." : "Einloggen"}
+        </button>
+        <p className="text-sm">
+          Noch kein Konto? <Link className="text-blue-700 underline" to="/register">Registrieren</Link>
+        </p>
+      </form>
+    </main>
+  );
+}

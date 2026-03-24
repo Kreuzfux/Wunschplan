@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Weiterleitung...</title>
+    <script>
+      const path = window.location.pathname;
+      const repo = "/Wunschplan";
+      if (path.startsWith(repo)) {
+        const route = path.slice(repo.length);
+        window.location.replace(repo + "/#" + route);
+      } else {
+        window.location.replace("/Wunschplan/#/login");
+      }
+    </script>
+  </head>
+  <body></body>
+</html>
