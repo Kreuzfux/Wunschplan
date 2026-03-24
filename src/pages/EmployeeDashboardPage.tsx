@@ -42,9 +42,11 @@ export function EmployeeDashboardPage() {
   }, [plan]);
 
   useEffect(() ***REMOVED*** {
+    if (!profile?.team_id) return;
     supabase
       .from("shift_types")
       .select("*")
+      .eq("team_id", profile.team_id)
       .order("sort_order")
       .then(({ data }) ***REMOVED*** {
         const baseShifts = ((data ?? []) as ShiftType[]).filter((shift) ***REMOVED*** shift.is_active !== false);
@@ -59,7 +61,7 @@ export function EmployeeDashboardPage() {
           })),
         );
       });
-  }, []);
+  }, [profile?.team_id]);
 
   useEffect(() ***REMOVED*** {
     if (!plan || !shifts.length) return;
