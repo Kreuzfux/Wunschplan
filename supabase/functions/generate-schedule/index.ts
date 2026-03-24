@@ -39,9 +39,12 @@ serve(async (req) => {
 
     const { data: profile } = await adminClient.from("profiles").select("role").eq("id", authData.user.id).maybeSingle();
     const email = authData.user.email?.toLowerCase() ?? "";
-    const isAdmin =
-      profile?.role === "admin" || authData.user.id === ADMIN_USER_ID || email === ADMIN_EMAIL;
-    if (!isAdmin) {
+    const canGenerate =
+      profile?.role === "admin" ||
+      profile?.role === "superuser" ||
+      authData.user.id === ADMIN_USER_ID ||
+      email === ADMIN_EMAIL;
+    if (!canGenerate) {
       return new Response(JSON.stringify({ error: "Nur Admins dürfen generieren." }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

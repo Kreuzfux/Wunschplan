@@ -15,7 +15,7 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 function AdminRoute({ children }: { children: JSX.Element }) {
   const { profile, loading } = useAuth();
   if (loading) return <div className="p-6">Lade Profil...</div>;
-  if (!profile || profile.role !== "admin") return <Navigate to="/dashboard" replace />;
+  if (!profile || !["admin", "superuser"].includes(profile.role)) return <Navigate to="/dashboard" replace />;
   return children;
 }
 
@@ -23,7 +23,7 @@ function HomeRoute() {
   const { session, profile, loading } = useAuth();
   if (loading) return <div className="p-6">Lade Benutzer...</div>;
   if (!session) return <Navigate to="/login" replace />;
-  if (profile?.role === "admin") return <Navigate to="/admin" replace />;
+  if (profile && ["admin", "superuser"].includes(profile.role)) return <Navigate to="/admin" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 

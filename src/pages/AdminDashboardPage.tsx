@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
-import type { MonthlyPlan, ShiftType } from "@/types";
+import type { MonthlyPlan, Profile, ShiftType, Team, UserRole } from "@/types";
 import { exportSchedulePdf } from "@/utils/pdfExport";
 import { exportScheduleExcel } from "@/utils/excelExport";
 import { useAuth } from "@/providers/AuthProvider";
@@ -11,6 +11,7 @@ interface SubmissionRow {
   employee_id: string;
   is_submitted: boolean;
   full_name?: string;
+  team_id?: string | null;
 }
 
 interface ShiftTypeOverrideRow {
@@ -29,7 +30,7 @@ interface EditableShiftTime {
 const MONTH_OPTIONS = [
   { value: 1, label: "Januar" },
   { value: 2, label: "Februar" },
-  { value: 3, label: "Maerz" },
+  { value: 3, label: "März" },
   { value: 4, label: "April" },
   { value: 5, label: "Mai" },
   { value: 6, label: "Juni" },
@@ -42,11 +43,16 @@ const MONTH_OPTIONS = [
 ];
 
 export function AdminDashboardPage() {
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
+  const isSuperuser = profile?.role === "superuser";
   const now = new Date();
   const [plans, setPlans] = useState<MonthlyPlan[]>([]);
   const [shifts, setShifts] = useState<ShiftType[]>([]);
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [submissionTeamFilter, setSubmissionTeamFilter] = useState("all");
+  const [newTeamName, setNewTeamName] = useState("");
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [shiftEditorPlanId, setShiftEditorPlanId] = useState<string | null>(null);
   const [editableShiftTimes, setEditableShiftTimes] = useState<EditableShiftTime[]>([]);
@@ -70,6 +76,19 @@ export function AdminDashboardPage() {
     setShifts(data ?? []);
   }
 
+  async function reloadTeams() {
+    const { data } = await supabase.from("teams").select("*").order("name");
+    setTeams((data ?? []) as Team[]);
+  }
+
+  async function reloadProfiles() {
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("full_name", { ascending: true });
+    setProfiles((data ?? []) as Profile[]);
+  }
+
   async function reloadSubmissions(planId: string) {
     const { data, error } = await supabase
       .from("wish_submissions")
@@ -89,22 +108,29 @@ export function AdminDashboardPage() {
 
     const { data: profileRows } = await supabase
       .from("profiles")
-      .select("id,full_name")
+      .select("id,full_name,team_id")
       .in("id", employeeIds);
     const nameMap = new Map((profileRows ?? []).map((row: any) => [row.id, row.full_name as string]));
+    const teamMap = new Map((profileRows ?? []).map((row: any) => [row.id, (row.team_id as string | null) ?? null]));
 
-    setSubmissions(
-      baseRows.map((row) => ({
+    const mergedRows: SubmissionRow[] = baseRows.map((row) => ({
         employee_id: row.employee_id,
         is_submitted: row.is_submitted,
         full_name: nameMap.get(row.employee_id),
-      })),
-    );
+        team_id: teamMap.get(row.employee_id) ?? null,
+      }));
+    const filteredRows =
+      submissionTeamFilter === "all"
+        ? mergedRows
+        : mergedRows.filter((row) => row.team_id === submissionTeamFilter);
+    setSubmissions(filteredRows);
   }
 
   useEffect(() => {
     void reloadPlans();
     void reloadShifts();
+    void reloadTeams();
+    void reloadProfiles();
   }, []);
 
   useEffect(() => {
@@ -136,7 +162,7 @@ export function AdminDashboardPage() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [selectedPlanId]);
+  }, [selectedPlanId, submissionTeamFilter]);
 
   useEffect(() => {
     if (!shiftEditorPlanId || !shifts.length) {
@@ -251,6 +277,35 @@ export function AdminDashboardPage() {
     setNotice(error ? error.message : `Schicht '${shiftName}' wurde geloescht.`);
     if (!error) {
       await reloadShifts();
+    }
+  }
+
+  async function createTeam() {
+    const trimmedName = newTeamName.trim();
+    if (!trimmedName) {
+      setNotice("Bitte einen Teamnamen eingeben.");
+      return;
+    }
+    const { error } = await supabase.from("teams").insert({ name: trimmedName });
+    setNotice(error ? error.message : `Team '${trimmedName}' wurde angelegt.`);
+    if (!error) {
+      setNewTeamName("");
+      await reloadTeams();
+    }
+  }
+
+  async function updateUserRole(userId: string, role: UserRole) {
+    const { error } = await supabase.from("profiles").update({ role }).eq("id", userId);
+    setNotice(error ? error.message : "Rolle aktualisiert.");
+    if (!error) await reloadProfiles();
+  }
+
+  async function updateUserTeam(userId: string, teamId: string | null) {
+    const { error } = await supabase.from("profiles").update({ team_id: teamId }).eq("id", userId);
+    setNotice(error ? error.message : "Teamzuordnung aktualisiert.");
+    if (!error) {
+      await reloadProfiles();
+      if (selectedPlanId) await reloadSubmissions(selectedPlanId);
     }
   }
 
@@ -421,6 +476,21 @@ export function AdminDashboardPage() {
         <div className="rounded-xl bg-white p-4 shadow">
           <h2 className="font-medium">Abgabestatus</h2>
           <p className="text-sm text-slate-600">Aktualisiert sich automatisch über Supabase Realtime.</p>
+          <label className="mt-2 block text-sm">
+            Team-Filter
+            <select
+              className="ml-2 rounded border px-2 py-1"
+              value={submissionTeamFilter}
+              onChange={(e) => setSubmissionTeamFilter(e.target.value)}
+            >
+              <option value="all">Alle Teams</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <ul className="mt-2 space-y-2 text-sm">
             {submissions.map((submission) => (
               <li key={submission.employee_id} className="rounded border p-2">
@@ -431,6 +501,74 @@ export function AdminDashboardPage() {
           </ul>
         </div>
       </section>
+
+      {isSuperuser ? (
+        <section className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl bg-white p-4 shadow">
+            <h2 className="font-medium">Teams verwalten</h2>
+            <div className="mt-3 flex gap-2">
+              <input
+                className="flex-1 rounded border px-3 py-2 text-sm"
+                placeholder="Neues Team (z. B. Nord)"
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+              />
+              <button className="rounded border px-3 py-2 text-sm" onClick={() => void createTeam()}>
+                Team anlegen
+              </button>
+            </div>
+            <ul className="mt-3 space-y-2 text-sm">
+              {teams.map((team) => (
+                <li key={team.id} className="rounded border p-2">
+                  {team.name}
+                </li>
+              ))}
+              {!teams.length ? <li className="text-slate-500">Keine Teams vorhanden.</li> : null}
+            </ul>
+          </div>
+
+          <div className="rounded-xl bg-white p-4 shadow">
+            <h2 className="font-medium">Benutzer verwalten</h2>
+            <ul className="mt-2 space-y-2 text-sm">
+              {profiles.map((member) => (
+                <li key={member.id} className="rounded border p-2">
+                  <div className="font-medium">{member.full_name}</div>
+                  <div className="text-xs text-slate-500">{member.email}</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <label>
+                      Rolle
+                      <select
+                        className="ml-2 rounded border px-2 py-1"
+                        value={member.role}
+                        onChange={(e) => void updateUserRole(member.id, e.target.value as UserRole)}
+                      >
+                        <option value="employee">Mitarbeiter</option>
+                        <option value="admin">Admin</option>
+                        <option value="superuser">Superuser</option>
+                      </select>
+                    </label>
+                    <label>
+                      Team
+                      <select
+                        className="ml-2 rounded border px-2 py-1"
+                        value={member.team_id ?? ""}
+                        onChange={(e) => void updateUserTeam(member.id, e.target.value || null)}
+                      >
+                        {teams.map((team) => (
+                          <option key={team.id} value={team.id}>
+                            {team.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </li>
+              ))}
+              {!profiles.length ? <li className="text-slate-500">Keine Benutzer gefunden.</li> : null}
+            </ul>
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }
