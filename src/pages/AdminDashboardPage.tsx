@@ -2,7 +2,15 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
-import type { MonthlyPlan, Profile, ShiftType, Team, UserRole } from "@/types";
+import type {
+  EmployeeShiftLimit,
+  GenerateScheduleResponse,
+  MonthlyPlan,
+  Profile,
+  ShiftType,
+  Team,
+  UserRole,
+} from "@/types";
 import { exportSchedulePdf } from "@/utils/pdfExport";
 import { exportScheduleExcel } from "@/utils/excelExport";
 import { useAuth } from "@/providers/AuthProvider";
@@ -64,10 +72,15 @@ export function AdminDashboardPage() {
   const [shiftEditorPlanId, setShiftEditorPlanId] = useState<string | null>(null);
   const [editableShiftTimes, setEditableShiftTimes] = useState<EditableShiftTime[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [shiftLimitsByEmployee, setShiftLimitsByEmployee] = useState<Record<string, number>>({});
+  const [limitDraftByEmployee, setLimitDraftByEmployee] = useState<Record<string, string>>({});
   const [planMonth, setPlanMonth] = useState(now.getMonth() + 1);
   const [planYear, setPlanYear] = useState(now.getFullYear());
   const yearOptions = Array.from({ length: 6 }, (_, i) => now.getFullYear() + i);
   const activeShifts = shifts.filter((shift) => shift.is_active !== false);
+  const limitsTeamEmployees = profiles
+    .filter((p) => p.role === "employee" && (planTeamFilter === "all" ? false : p.team_id === planTeamFilter))
+    .sort((a, b) => a.full_name.localeCompare(b.full_name, "de"));
 
   async function reloadPlans() {
     let query = supabase
@@ -102,6 +115,61 @@ export function AdminDashboardPage() {
       .select("*")
       .order("full_name", { ascending: true });
     setProfiles((data ?? []) as Profile[]);
+  }
+
+  async function reloadEmployeeShiftLimits() {
+    if (planTeamFilter === "all") {
+      setShiftLimitsByEmployee({});
+      return;
+    }
+    const empIds = profiles
+      .filter((p) => p.role === "employee" && p.team_id === planTeamFilter)
+      .map((p) => p.id);
+    if (!empIds.length) {
+      setShiftLimitsByEmployee({});
+      return;
+    }
+    const { data, error } = await supabase
+      .from("employee_shift_limits")
+      .select("employee_id,max_shifts_per_month")
+      .in("employee_id", empIds);
+    if (error) {
+      setNotice(error.message);
+      setShiftLimitsByEmployee({});
+      return;
+    }
+    const next: Record<string, number> = {};
+    for (const row of (data ?? []) as Pick<EmployeeShiftLimit, "employee_id" | "max_shifts_per_month">[]) {
+      next[row.employee_id] = row.max_shifts_per_month;
+    }
+    setShiftLimitsByEmployee(next);
+  }
+
+  async function saveEmployeeShiftLimit(employeeId: string) {
+    const draft = limitDraftByEmployee[employeeId];
+    const fallback =
+      shiftLimitsByEmployee[employeeId] !== undefined ? String(shiftLimitsByEmployee[employeeId]) : "";
+    const raw = (draft !== undefined ? draft : fallback).trim();
+    const n = raw === "" ? 31 : Number.parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 0 || n > 366) {
+      setNotice("Max. Schichten: bitte Zahl zwischen 0 und 366 (leer = Standard 31).");
+      return;
+    }
+    const { error } = await supabase.from("employee_shift_limits").upsert(
+      { employee_id: employeeId, max_shifts_per_month: n },
+      { onConflict: "employee_id" },
+    );
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
+    setShiftLimitsByEmployee((prev) => ({ ...prev, [employeeId]: n }));
+    setLimitDraftByEmployee((prev) => {
+      const next = { ...prev };
+      delete next[employeeId];
+      return next;
+    });
+    setNotice(`Limit gespeichert: ${n} Schichten pro Monat.`);
   }
 
   async function reloadSubmissions(planId: string) {
@@ -171,6 +239,11 @@ export function AdminDashboardPage() {
   useEffect(() => {
     void reloadPlans();
   }, [planTeamFilter]);
+
+  useEffect(() => {
+    setLimitDraftByEmployee({});
+    void reloadEmployeeShiftLimits();
+  }, [planTeamFilter, profiles]);
 
   useEffect(() => {
     void reloadShifts();
@@ -281,7 +354,7 @@ export function AdminDashboardPage() {
     if (!(await ensurePlanPrivileges())) {
       return;
     }
-    const { error } = await supabase.functions.invoke("generate-schedule", {
+    const { data, error } = await supabase.functions.invoke("generate-schedule", {
       body: { monthly_plan_id: planId },
     });
     if (error) {
@@ -293,7 +366,27 @@ export function AdminDashboardPage() {
       }
       return;
     }
-    setNotice("Dienstplan-Generierung gestartet.");
+    const result = data as GenerateScheduleResponse | null;
+    if (result?.success) {
+      const parts = [
+        `Generierung fertig: ${result.created} Zuweisung(en).`,
+        result.unfilled_slots > 0
+          ? `Achtung: ${result.unfilled_slots} Schicht-Slot(s) nicht voll besetzt (Wuensche/Limits pruefen).`
+          : null,
+        result.skipped_by_limit > 0
+          ? `${result.skipped_by_limit} mal wegen Monatslimit uebersprungen.`
+          : null,
+      ].filter(Boolean);
+      setNotice(parts.join(" "));
+      await reloadPlans();
+      return;
+    }
+    if (result && "error" in result && result.error) {
+      setNotice(String(result.error));
+      return;
+    }
+    setNotice("Generierung abgeschlossen.");
+    await reloadPlans();
   }
 
   async function handleExport(planId: string) {
@@ -756,6 +849,59 @@ export function AdminDashboardPage() {
           </ul>
         </div>
       </section>
+
+      {isAdmin || isSuperuser ? (
+        <section className="mt-4 rounded-xl bg-white p-4 shadow">
+          <h2 className="font-medium">Mitarbeiter-Limits (Schichten pro Monat)</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Die Dienstplan-Generierung weist pro Kalendermonat höchstens so viele Schichten zu. Leeres Feld = Standard 31.
+            {isSuperuser ? " Du pflegst nur Mitarbeiter deines Teams." : null}
+          </p>
+          {planTeamFilter === "all" ? (
+            <p className="mt-2 text-sm text-amber-800">
+              Bitte oben bei Monatsplanung ein Team wählen, um Limits zu bearbeiten.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm">
+              {limitsTeamEmployees.map((emp) => {
+                const stored = shiftLimitsByEmployee[emp.id];
+                const draft = limitDraftByEmployee[emp.id];
+                const inputValue =
+                  draft !== undefined ? draft : stored !== undefined ? String(stored) : "";
+                return (
+                  <li key={emp.id} className="flex flex-wrap items-center gap-2 rounded border p-2">
+                    <span className="min-w-[10rem] font-medium">{emp.full_name}</span>
+                    <label className="text-slate-600">
+                      Max. / Monat
+                      <input
+                        className="ml-2 w-20 rounded border px-2 py-1"
+                        type="number"
+                        min={0}
+                        max={366}
+                        placeholder="31"
+                        value={inputValue}
+                        onChange={(e) =>
+                          setLimitDraftByEmployee((prev) => ({ ...prev, [emp.id]: e.target.value }))
+                        }
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="rounded border px-3 py-1"
+                      onClick={() => void saveEmployeeShiftLimit(emp.id)}
+                    >
+                      Speichern
+                    </button>
+                  </li>
+                );
+              })}
+              {!limitsTeamEmployees.length ? (
+                <li className="text-slate-500">Keine Mitarbeiter in diesem Team.</li>
+              ) : null}
+            </ul>
+          )}
+        </section>
+      ) : null}
 
       {isAdmin ? (
         <section className="mt-4 grid gap-4 md:grid-cols-2">

@@ -48,3 +48,19 @@ export interface ShiftWish {
   custom_end_time: string | null;
   remarks: string | null;
 }
+
+/** Maximale Schichten pro Kalendermonat (von Admin/Superuser pro Mitarbeiter). */
+export interface EmployeeShiftLimit {
+  employee_id: string;
+  max_shifts_per_month: number;
+  updated_at?: string;
+}
+
+/** Antwort der Edge Function „generate-schedule“. */
+export interface GenerateScheduleResponse {
+  success: boolean;
+  created: number;
+  unfilled_slots: number;
+  skipped_by_limit: number;
+  error?: string;
+}

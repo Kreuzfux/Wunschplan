@@ -9,6 +9,24 @@ const corsHeaders = {
 const ADMIN_EMAIL = "nitzschkepa@yahoo.de";
 const ADMIN_USER_ID = "b6210438-2ad6-4387-b4d6-99ba8f87cd76";
 
+const DEFAULT_MAX_SHIFTS_PER_MONTH = 31;
+
+type WishRow = {
+  employee_id: string;
+  date: string;
+  shift_type_id: string | null;
+  custom_start_time: string | null;
+  custom_end_time: string | null;
+};
+
+function dedupeWishesByEmployee(wishes: WishRow[]): WishRow[] {
+  const map = new Map<string, WishRow>();
+  for (const w of wishes) {
+    if (!map.has(w.employee_id)) map.set(w.employee_id, w);
+  }
+  return Array.from(map.values());
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -75,29 +93,78 @@ serve(async (req) => {
       });
     }
 
+    const { data: teamProfiles } = await adminClient.from("profiles").select("id").eq("team_id", plan.team_id);
+    const teamMemberIds = new Set((teamProfiles ?? []).map((p: { id: string }) => p.id));
+
     const { data: wishes } = await adminClient
       .from("shift_wishes")
       .select("employee_id,date,shift_type_id,custom_start_time,custom_end_time")
       .eq("monthly_plan_id", monthly_plan_id)
       .in("wish_type", ["available", "custom_time"]);
 
+    const wishesInTeam = (wishes ?? []).filter((w: WishRow) => teamMemberIds.has(w.employee_id));
+
+    const wishEmployeeIds = [...new Set(wishesInTeam.map((w: WishRow) => w.employee_id))];
+    const limitMap = new Map<string, number>();
+
+    if (wishEmployeeIds.length > 0) {
+      const { data: limitRows } = await adminClient
+        .from("employee_shift_limits")
+        .select("employee_id,max_shifts_per_month")
+        .in("employee_id", wishEmployeeIds);
+      for (const row of limitRows ?? []) {
+        limitMap.set((row as { employee_id: string }).employee_id, (row as { max_shifts_per_month: number }).max_shifts_per_month);
+      }
+    }
+
+    const maxFor = (employeeId: string) => limitMap.get(employeeId) ?? DEFAULT_MAX_SHIFTS_PER_MONTH;
+
     await adminClient.from("schedule_assignments").delete().eq("monthly_plan_id", monthly_plan_id);
 
-    const grouped = new Map<string, any[]>();
-    for (const wish of wishes ?? []) {
+    const grouped = new Map<string, WishRow[]>();
+    for (const wish of wishesInTeam) {
       const key = `${wish.date}::${wish.shift_type_id ?? "custom"}`;
       const list = grouped.get(key) ?? [];
       list.push(wish);
       grouped.set(key, list);
     }
 
+    const sortedKeys = Array.from(grouped.keys()).sort((a, b) => a.localeCompare(b));
+
     const assignmentCount = new Map<string, number>();
-    const inserts: any[] = [];
-    for (const [key, candidates] of grouped.entries()) {
-      candidates.sort((a, b) => (assignmentCount.get(a.employee_id) ?? 0) - (assignmentCount.get(b.employee_id) ?? 0));
-      const selected = candidates.slice(0, plan.min_staff_per_shift);
+    const inserts: Record<string, unknown>[] = [];
+    let skippedByLimit = 0;
+    let unfilledSlots = 0;
+    const minStaff = Math.max(1, Number(plan.min_staff_per_shift) || 1);
+
+    for (const key of sortedKeys) {
+      const rawList = grouped.get(key)!;
+      const candidates = dedupeWishesByEmployee(rawList);
+      const sortedFull = [...candidates].sort((a, b) => {
+        const ca = assignmentCount.get(a.employee_id) ?? 0;
+        const cb = assignmentCount.get(b.employee_id) ?? 0;
+        if (ca !== cb) return ca - cb;
+        return a.employee_id.localeCompare(b.employee_id);
+      });
+
+      const chosen: WishRow[] = [];
+      for (const c of sortedFull) {
+        if (chosen.length >= minStaff) break;
+        const current = assignmentCount.get(c.employee_id) ?? 0;
+        const cap = maxFor(c.employee_id);
+        if (current >= cap) {
+          skippedByLimit += 1;
+          continue;
+        }
+        chosen.push(c);
+      }
+
+      if (chosen.length < minStaff) {
+        unfilledSlots += 1;
+      }
+
       const [date, shiftTypeId] = key.split("::");
-      for (const candidate of selected) {
+      for (const candidate of chosen) {
         assignmentCount.set(candidate.employee_id, (assignmentCount.get(candidate.employee_id) ?? 0) + 1);
         inserts.push({
           monthly_plan_id,
@@ -115,9 +182,17 @@ serve(async (req) => {
     }
     await adminClient.from("monthly_plans").update({ status: "generated" }).eq("id", monthly_plan_id);
 
-    return new Response(JSON.stringify({ success: true, created: inserts.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        created: inserts.length,
+        unfilled_slots: unfilledSlots,
+        skipped_by_limit: skippedByLimit,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (error) {
     return new Response(JSON.stringify({ error: String(error) }), {
       status: 500,
