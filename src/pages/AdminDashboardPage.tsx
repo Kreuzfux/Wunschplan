@@ -12,6 +12,21 @@ interface SubmissionRow {
   is_submitted: boolean;
 }
 
+const MONTH_OPTIONS = [
+  { value: 1, label: "Januar" },
+  { value: 2, label: "Februar" },
+  { value: 3, label: "Maerz" },
+  { value: 4, label: "April" },
+  { value: 5, label: "Mai" },
+  { value: 6, label: "Juni" },
+  { value: 7, label: "Juli" },
+  { value: 8, label: "August" },
+  { value: 9, label: "September" },
+  { value: 10, label: "Oktober" },
+  { value: 11, label: "November" },
+  { value: 12, label: "Dezember" },
+];
+
 export function AdminDashboardPage() {
   const { signOut } = useAuth();
   const now = new Date();
@@ -22,6 +37,7 @@ export function AdminDashboardPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [planMonth, setPlanMonth] = useState(now.getMonth() + 1);
   const [planYear, setPlanYear] = useState(now.getFullYear());
+  const yearOptions = Array.from({ length: 6 }, (_, i) => now.getFullYear() + i);
 
   async function reloadPlans() {
     const { data } = await supabase
@@ -115,25 +131,31 @@ export function AdminDashboardPage() {
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <label className="text-sm">
             Monat
-            <input
-              className="ml-2 w-20 rounded border px-2 py-1"
-              type="number"
-              min={1}
-              max={12}
+            <select
+              className="ml-2 rounded border px-2 py-1"
               value={planMonth}
               onChange={(e) => setPlanMonth(Number(e.target.value))}
-            />
+            >
+              {MONTH_OPTIONS.map((monthOption) => (
+                <option key={monthOption.value} value={monthOption.value}>
+                  {monthOption.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="text-sm">
             Jahr
-            <input
-              className="ml-2 w-24 rounded border px-2 py-1"
-              type="number"
-              min={now.getFullYear()}
-              max={now.getFullYear() + 5}
+            <select
+              className="ml-2 rounded border px-2 py-1"
               value={planYear}
               onChange={(e) => setPlanYear(Number(e.target.value))}
-            />
+            >
+              {yearOptions.map((yearOption) => (
+                <option key={yearOption} value={yearOption}>
+                  {yearOption}
+                </option>
+              ))}
+            </select>
           </label>
           <button className="rounded bg-slate-900 px-4 py-2 text-sm text-white" onClick={() => void createSelectedMonthPlan()}>
             Monat anlegen
