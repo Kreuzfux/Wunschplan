@@ -215,8 +215,7 @@ export function AdminDashboardPage() {
   }, [shiftEditorPlanId, shifts]);
 
   async function createSelectedMonthPlan() {
-    if (!isAdmin) {
-      setNotice("Nur Admins dürfen neue Monate anlegen.");
+    if (!(await ensureAdminPrivileges())) {
       return;
     }
     if (!Number.isInteger(planMonth) || planMonth < 1 || planMonth > 12 || !Number.isInteger(planYear)) {
@@ -242,8 +241,7 @@ export function AdminDashboardPage() {
   }
 
   async function updatePlanStatus(id: string, status: MonthlyPlan["status"]) {
-    if (!isAdmin) {
-      setNotice("Nur Admins dürfen den Monatsstatus ändern.");
+    if (!(await ensureAdminPrivileges())) {
       return;
     }
     const { error } = await supabase.from("monthly_plans").update({ status }).eq("id", id);
@@ -252,8 +250,7 @@ export function AdminDashboardPage() {
   }
 
   async function triggerGeneration(planId: string) {
-    if (!isAdmin) {
-      setNotice("Nur Admins dürfen die Generierung starten.");
+    if (!(await ensureAdminPrivileges())) {
       return;
     }
     const { error } = await supabase.functions.invoke("generate-schedule", {
@@ -406,6 +403,27 @@ export function AdminDashboardPage() {
       await reloadProfiles();
       if (selectedPlanId) await reloadSubmissions(selectedPlanId);
     }
+  }
+
+  async function ensureAdminPrivileges() {
+    if (!profile?.id) {
+      setNotice("Benutzerprofil konnte nicht geladen werden. Bitte neu anmelden.");
+      return false;
+    }
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", profile.id)
+      .maybeSingle();
+    if (error) {
+      setNotice(error.message);
+      return false;
+    }
+    if (data?.role !== "admin") {
+      setNotice("Nur Admins dürfen diese Aktion ausführen.");
+      return false;
+    }
+    return true;
   }
 
   return (
