@@ -14,14 +14,26 @@ interface SubmissionRow {
 
 export function AdminDashboardPage() {
   const { signOut } = useAuth();
+  const now = new Date();
   const [plans, setPlans] = useState<MonthlyPlan[]>([]);
   const [shifts, setShifts] = useState<ShiftType[]>([]);
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [planMonth, setPlanMonth] = useState(now.getMonth() + 1);
+  const [planYear, setPlanYear] = useState(now.getFullYear());
+
+  async function reloadPlans() {
+    const { data } = await supabase
+      .from("monthly_plans")
+      .select("*")
+      .order("year", { ascending: false })
+      .order("month", { ascending: false });
+    setPlans(data ?? []);
+  }
 
   useEffect(() => {
-    supabase.from("monthly_plans").select("*").order("year", { ascending: false }).order("month", { ascending: false }).then(({ data }) => setPlans(data ?? []));
+    void reloadPlans();
     supabase.from("shift_types").select("*").order("sort_order").then(({ data }) => setShifts(data ?? []));
   }, []);
 
@@ -34,20 +46,33 @@ export function AdminDashboardPage() {
       .then(({ data }) => setSubmissions((data ?? []) as SubmissionRow[]));
   }, [selectedPlanId]);
 
-  async function createCurrentMonthPlan() {
-    const now = new Date();
+  async function createSelectedMonthPlan() {
+    if (!Number.isInteger(planMonth) || planMonth < 1 || planMonth > 12 || !Number.isInteger(planYear)) {
+      setNotice("Bitte gueltigen Monat (1-12) und ein gueltiges Jahr eingeben.");
+      return;
+    }
+
+    const requestedDate = new Date(planYear, planMonth - 1, 1);
+    const firstCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    if (requestedDate < firstCurrentMonth) {
+      setNotice("Vergangene Monate koennen nicht neu angelegt werden.");
+      return;
+    }
+
     const { error } = await supabase.from("monthly_plans").upsert({
-      year: now.getFullYear(),
-      month: now.getMonth() + 1,
+      year: planYear,
+      month: planMonth,
       status: "draft",
       min_staff_per_shift: 1,
     });
-    setNotice(error ? error.message : "Monatsplan erstellt/aktualisiert.");
+    setNotice(error ? error.message : `Monatsplan ${planMonth}.${planYear} erstellt/aktualisiert.`);
+    if (!error) await reloadPlans();
   }
 
   async function updatePlanStatus(id: string, status: MonthlyPlan["status"]) {
     const { error } = await supabase.from("monthly_plans").update({ status }).eq("id", id);
     setNotice(error ? error.message : `Status auf '${status}' gesetzt.`);
+    if (!error) await reloadPlans();
   }
 
   async function triggerGeneration(planId: string) {
@@ -87,9 +112,33 @@ export function AdminDashboardPage() {
 
       <section className="mb-4 rounded-xl bg-white p-4 shadow">
         <h2 className="font-medium">Monatsplanung</h2>
-        <button className="mt-3 rounded bg-slate-900 px-4 py-2 text-sm text-white" onClick={() => void createCurrentMonthPlan()}>
-          Aktuellen Monat anlegen
-        </button>
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <label className="text-sm">
+            Monat
+            <input
+              className="ml-2 w-20 rounded border px-2 py-1"
+              type="number"
+              min={1}
+              max={12}
+              value={planMonth}
+              onChange={(e) => setPlanMonth(Number(e.target.value))}
+            />
+          </label>
+          <label className="text-sm">
+            Jahr
+            <input
+              className="ml-2 w-24 rounded border px-2 py-1"
+              type="number"
+              min={now.getFullYear()}
+              max={now.getFullYear() + 5}
+              value={planYear}
+              onChange={(e) => setPlanYear(Number(e.target.value))}
+            />
+          </label>
+          <button className="rounded bg-slate-900 px-4 py-2 text-sm text-white" onClick={() => void createSelectedMonthPlan()}>
+            Monat anlegen
+          </button>
+        </div>
         <div className="mt-4 overflow-auto">
           <table className="min-w-full text-sm">
             <thead>
