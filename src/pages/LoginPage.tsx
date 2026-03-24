@@ -3,6 +3,20 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/providers/AuthProvider";
 
+function toFriendlyLoginError(message: string) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("invalid login credentials")) {
+    return "E-Mail oder Passwort ist falsch.";
+  }
+  if (normalized.includes("email not confirmed")) {
+    return "E-Mail-Adresse noch nicht bestaetigt. Bitte bestaetige zuerst deine E-Mail.";
+  }
+  if (normalized.includes("network") || normalized.includes("failed to fetch")) {
+    return "Netzwerkfehler beim Login. Bitte Verbindung pruefen und erneut versuchen.";
+  }
+  return message;
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,11 +46,9 @@ export function LoginPage() {
     setError(null);
 
     try {
-      // Clear potentially stale local auth session before a fresh password login.
-      await supabase.auth.signOut({ scope: "local" });
-
+      const normalizedEmail = email.trim().toLowerCase();
       const loginResult = await Promise.race([
-        supabase.auth.signInWithPassword({ email, password }),
+        supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
         new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error("timeout")), 12000);
         }),
@@ -44,14 +56,14 @@ export function LoginPage() {
       const { error: signInError } = loginResult;
 
       if (signInError) {
-        setError(signInError.message);
+        setError(toFriendlyLoginError(signInError.message));
         return;
       }
 
       // Route after sign-in; LoginPage effect handles delayed session propagation.
       navigate("/", { replace: true });
     } catch {
-      setError("Anmeldung hat zu lange gedauert. Bitte erneut versuchen oder 'Lokale Daten zurücksetzen' klicken.");
+      setError("Anmeldung hat zu lange gedauert. Bitte erneut versuchen oder 'Lokale Daten zuruecksetzen' klicken.");
     } finally {
       setLoading(false);
     }
