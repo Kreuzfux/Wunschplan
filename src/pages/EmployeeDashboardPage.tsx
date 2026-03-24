@@ -42,9 +42,11 @@ export function EmployeeDashboardPage() {
   }, [plan]);
 
   useEffect(() => {
+    if (!profile?.team_id) return;
     supabase
       .from("shift_types")
       .select("*")
+      .eq("team_id", profile.team_id)
       .order("sort_order")
       .then(({ data }) => {
         const baseShifts = ((data ?? []) as ShiftType[]).filter((shift) => shift.is_active !== false);
@@ -59,7 +61,7 @@ export function EmployeeDashboardPage() {
           })),
         );
       });
-  }, []);
+  }, [profile?.team_id]);
 
   useEffect(() => {
     if (!plan || !shifts.length) return;

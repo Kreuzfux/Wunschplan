@@ -53,6 +53,7 @@ export function AdminDashboardPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [submissionTeamFilter, setSubmissionTeamFilter] = useState("all");
+  const [shiftTeamFilter, setShiftTeamFilter] = useState("all");
   const [newTeamName, setNewTeamName] = useState("");
   const [newShiftName, setNewShiftName] = useState("");
   const [newShiftStart, setNewShiftStart] = useState("08:00");
@@ -77,7 +78,11 @@ export function AdminDashboardPage() {
   }
 
   async function reloadShifts() {
-    const { data } = await supabase.from("shift_types").select("*").order("sort_order");
+    let query = supabase.from("shift_types").select("*").order("sort_order");
+    if (shiftTeamFilter !== "all") {
+      query = query.eq("team_id", shiftTeamFilter);
+    }
+    const { data } = await query;
     setShifts(data ?? []);
   }
 
@@ -141,6 +146,7 @@ export function AdminDashboardPage() {
   useEffect(() => {
     if (isSuperuser && profile?.team_id) {
       setSubmissionTeamFilter(profile.team_id);
+      setShiftTeamFilter(profile.team_id);
     }
   }, [isSuperuser, profile?.team_id]);
 
@@ -149,6 +155,10 @@ export function AdminDashboardPage() {
     if (!selectedPlanId) setSelectedPlanId(plans[0].id);
     if (!shiftEditorPlanId) setShiftEditorPlanId(plans[0].id);
   }, [plans, selectedPlanId, shiftEditorPlanId]);
+
+  useEffect(() => {
+    void reloadShifts();
+  }, [shiftTeamFilter]);
 
   useEffect(() => {
     if (!selectedPlanId) return;
@@ -307,9 +317,15 @@ export function AdminDashboardPage() {
       return;
     }
 
+    if (shiftTeamFilter === "all") {
+      setNotice("Bitte zuerst ein Team für die Schicht auswählen.");
+      return;
+    }
+
     const maxSortOrder = shifts.reduce((max, shift) => Math.max(max, shift.sort_order ?? 0), 0);
     const { error } = await supabase.from("shift_types").insert({
       name: trimmedName,
+      team_id: shiftTeamFilter,
       default_start_time: newShiftStart,
       default_end_time: newShiftEnd,
       color: newShiftColor || "#3B82F6",
@@ -470,6 +486,22 @@ export function AdminDashboardPage() {
         <div className="rounded-xl bg-white p-4 shadow">
           <h2 className="font-medium">Schichtzeiten pro Monat</h2>
           <p className="mt-1 text-sm text-slate-600">Diese Zeiten sehen Mitarbeiter bei der Wunschplanung.</p>
+          <label className="mt-2 block text-sm">
+            Team für Schichten
+            <select
+              className="ml-2 rounded border px-2 py-1"
+              value={shiftTeamFilter}
+              onChange={(e) => setShiftTeamFilter(e.target.value)}
+              disabled={isSuperuser}
+            >
+              {!isSuperuser ? <option value="all">Alle Teams</option> : null}
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="mt-3 rounded border p-3">
             <h3 className="font-medium">Neue Schicht erstellen</h3>
             <div className="mt-2 flex flex-wrap items-end gap-2 text-sm">

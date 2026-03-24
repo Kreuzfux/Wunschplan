@@ -28,6 +28,7 @@ export interface MonthlyPlan {
 export interface ShiftType {
   id: string;
   name: string;
+  team_id: string;
   default_start_time: string;
   default_end_time: string;
   color: string;
