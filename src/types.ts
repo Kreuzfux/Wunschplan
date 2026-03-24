@@ -18,6 +18,7 @@ export interface Profile {
 
 export interface MonthlyPlan {
   id: string;
+  team_id: string;
   year: number;
   month: number;
   status: "draft" | "open" | "closed" | "generated" | "published";

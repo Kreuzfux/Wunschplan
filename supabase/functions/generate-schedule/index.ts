@@ -37,19 +37,12 @@ serve(async (req) => {
       });
     }
 
-    const { data: profile } = await adminClient.from("profiles").select("role").eq("id", authData.user.id).maybeSingle();
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("role,team_id")
+      .eq("id", authData.user.id)
+      .maybeSingle();
     const email = authData.user.email?.toLowerCase() ?? "";
-    const canGenerate =
-      profile?.role === "admin" ||
-      authData.user.id === ADMIN_USER_ID ||
-      email === ADMIN_EMAIL;
-    if (!canGenerate) {
-      return new Response(JSON.stringify({ error: "Nur Admins dürfen generieren." }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const { monthly_plan_id } = await req.json();
     if (!monthly_plan_id) {
       return new Response(JSON.stringify({ error: "monthly_plan_id fehlt." }), {
@@ -58,10 +51,26 @@ serve(async (req) => {
       });
     }
 
-    const { data: plan } = await adminClient.from("monthly_plans").select("id,min_staff_per_shift").eq("id", monthly_plan_id).single();
+    const { data: plan } = await adminClient
+      .from("monthly_plans")
+      .select("id,min_staff_per_shift,team_id")
+      .eq("id", monthly_plan_id)
+      .single();
     if (!plan) {
       return new Response(JSON.stringify({ error: "Monatsplan nicht gefunden." }), {
         status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const canGenerate =
+      profile?.role === "admin" ||
+      (profile?.role === "superuser" && profile.team_id === plan.team_id) ||
+      authData.user.id === ADMIN_USER_ID ||
+      email === ADMIN_EMAIL;
+    if (!canGenerate) {
+      return new Response(JSON.stringify({ error: "Nicht berechtigt für die Generierung dieses Teams." }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

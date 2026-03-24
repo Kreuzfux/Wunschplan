@@ -54,6 +54,7 @@ export function AdminDashboardPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [submissionTeamFilter, setSubmissionTeamFilter] = useState("all");
   const [shiftTeamFilter, setShiftTeamFilter] = useState("all");
+  const [planTeamFilter, setPlanTeamFilter] = useState("all");
   const [newTeamName, setNewTeamName] = useState("");
   const [newShiftName, setNewShiftName] = useState("");
   const [newShiftStart, setNewShiftStart] = useState("08:00");
@@ -69,11 +70,15 @@ export function AdminDashboardPage() {
   const activeShifts = shifts.filter((shift) => shift.is_active !== false);
 
   async function reloadPlans() {
-    const { data } = await supabase
+    let query = supabase
       .from("monthly_plans")
       .select("*")
       .order("year", { ascending: false })
       .order("month", { ascending: false });
+    if (planTeamFilter !== "all") {
+      query = query.eq("team_id", planTeamFilter);
+    }
+    const { data } = await query;
     setPlans(data ?? []);
   }
 
@@ -147,12 +152,13 @@ export function AdminDashboardPage() {
     if (isSuperuser && profile?.team_id) {
       setSubmissionTeamFilter(profile.team_id);
       setShiftTeamFilter(profile.team_id);
+      setPlanTeamFilter(profile.team_id);
     }
   }, [isSuperuser, profile?.team_id]);
 
   useEffect(() => {
-    if (!isAdmin && notice?.toLowerCase().includes("monthly_plans")) {
-      setNotice("Als Superuser hast du in der Monatsplanung nur Leserechte. Bitte Admin kontaktieren.");
+    if (!isAdmin && notice?.toLowerCase().includes("monthly_plans") && !notice.includes("eigenen Team")) {
+      setNotice("Als Superuser kannst du Monate nur für dein eigenes Team verwalten.");
     }
   }, [isAdmin, notice]);
 
@@ -161,6 +167,10 @@ export function AdminDashboardPage() {
     if (!selectedPlanId) setSelectedPlanId(plans[0].id);
     if (!shiftEditorPlanId) setShiftEditorPlanId(plans[0].id);
   }, [plans, selectedPlanId, shiftEditorPlanId]);
+
+  useEffect(() => {
+    void reloadPlans();
+  }, [planTeamFilter]);
 
   useEffect(() => {
     void reloadShifts();
@@ -221,7 +231,7 @@ export function AdminDashboardPage() {
   }, [shiftEditorPlanId, shifts]);
 
   async function createSelectedMonthPlan() {
-    if (!(await ensureAdminPrivileges())) {
+    if (!(await ensurePlanPrivileges())) {
       return;
     }
     if (!Number.isInteger(planMonth) || planMonth < 1 || planMonth > 12 || !Number.isInteger(planYear)) {
@@ -236,18 +246,30 @@ export function AdminDashboardPage() {
       return;
     }
 
-    const { error } = await supabase.from("monthly_plans").upsert({
-      year: planYear,
-      month: planMonth,
-      status: "draft",
-      min_staff_per_shift: 1,
-    });
+    const targetTeamId = planTeamFilter === "all" ? null : planTeamFilter;
+    if (!targetTeamId) {
+      setNotice("Bitte ein Team für den Monat auswählen.");
+      return;
+    }
+
+    const { error } = await supabase.from("monthly_plans").upsert(
+      {
+        team_id: targetTeamId,
+        year: planYear,
+        month: planMonth,
+        status: "draft",
+        min_staff_per_shift: 1,
+      },
+      {
+        onConflict: "team_id,year,month",
+      },
+    );
     setNotice(error ? error.message : `Monatsplan ${planMonth}.${planYear} erstellt/aktualisiert.`);
     if (!error) await reloadPlans();
   }
 
   async function updatePlanStatus(id: string, status: MonthlyPlan["status"]) {
-    if (!(await ensureAdminPrivileges())) {
+    if (!(await ensurePlanPrivileges())) {
       return;
     }
     const { error } = await supabase.from("monthly_plans").update({ status }).eq("id", id);
@@ -256,7 +278,7 @@ export function AdminDashboardPage() {
   }
 
   async function triggerGeneration(planId: string) {
-    if (!(await ensureAdminPrivileges())) {
+    if (!(await ensurePlanPrivileges())) {
       return;
     }
     const { error } = await supabase.functions.invoke("generate-schedule", {
@@ -411,7 +433,16 @@ export function AdminDashboardPage() {
     }
   }
 
-  async function ensureAdminPrivileges() {
+  async function deletePlan(planId: string) {
+    if (!(await ensurePlanPrivileges())) {
+      return;
+    }
+    const { error } = await supabase.from("monthly_plans").delete().eq("id", planId);
+    setNotice(error ? error.message : "Monat wurde gelöscht.");
+    if (!error) await reloadPlans();
+  }
+
+  async function ensurePlanPrivileges() {
     if (!profile?.id) {
       setNotice("Benutzerprofil konnte nicht geladen werden. Bitte neu anmelden.");
       return false;
@@ -425,8 +456,12 @@ export function AdminDashboardPage() {
       setNotice(error.message);
       return false;
     }
-    if (data?.role !== "admin") {
-      setNotice("Nur Admins dürfen diese Aktion ausführen.");
+    if (data?.role !== "admin" && data?.role !== "superuser") {
+      setNotice("Nur Admins und Superuser dürfen diese Aktion ausführen.");
+      return false;
+    }
+    if (data?.role === "superuser" && planTeamFilter === "all") {
+      setNotice("Superuser dürfen nur Monate ihres eigenen Teams verwalten.");
       return false;
     }
     return true;
@@ -447,10 +482,26 @@ export function AdminDashboardPage() {
         <h2 className="font-medium">Monatsplanung</h2>
         {!isAdmin ? (
           <p className="mt-1 text-sm text-slate-600">
-            Als Superuser hast du hier Leserechte. Anlegen, Statuswechsel und Generierung sind nur für Admins möglich.
+            Als Superuser kannst du Monate nur für dein eigenes Team anlegen und löschen.
           </p>
         ) : null}
         <div className="mt-3 flex flex-wrap items-end gap-2">
+          <label className="text-sm">
+            Team
+            <select
+              className="ml-2 rounded border px-2 py-1"
+              value={planTeamFilter}
+              onChange={(e) => setPlanTeamFilter(e.target.value)}
+              disabled={isSuperuser}
+            >
+              {!isSuperuser ? <option value="all">Alle Teams</option> : null}
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="text-sm">
             Monat
             <select
@@ -481,7 +532,7 @@ export function AdminDashboardPage() {
           </label>
           <button
             className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
-            disabled={!isAdmin}
+            disabled={isSuperuser && planTeamFilter === "all"}
             onClick={() => void createSelectedMonthPlan()}
           >
             Monat anlegen
@@ -505,7 +556,7 @@ export function AdminDashboardPage() {
                     <button
                       className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
                       title="Setzt den Monat auf 'open', damit Mitarbeiter ihre Wuensche eintragen koennen."
-                      disabled={!isAdmin}
+                      disabled={isSuperuser && planTeamFilter === "all"}
                       onClick={() => void updatePlanStatus(plan.id, "open")}
                     >
                       Open
@@ -513,7 +564,7 @@ export function AdminDashboardPage() {
                     <button
                       className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
                       title="Setzt den Monat auf 'closed' und verhindert weitere Eintraege."
-                      disabled={!isAdmin}
+                      disabled={isSuperuser && planTeamFilter === "all"}
                       onClick={() => void updatePlanStatus(plan.id, "closed")}
                     >
                       Close
@@ -521,7 +572,7 @@ export function AdminDashboardPage() {
                     <button
                       className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
                       title="Startet die automatische Dienstplan-Generierung fuer den ausgewaehlten Monat."
-                      disabled={!isAdmin}
+                      disabled={isSuperuser && planTeamFilter === "all"}
                       onClick={() => void triggerGeneration(plan.id)}
                     >
                       Generieren
@@ -529,10 +580,17 @@ export function AdminDashboardPage() {
                     <button
                       className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
                       title="Veroeffentlicht den Plan, damit Mitarbeiter den finalen Dienstplan sehen."
-                      disabled={!isAdmin}
+                      disabled={isSuperuser && planTeamFilter === "all"}
                       onClick={() => void updatePlanStatus(plan.id, "published")}
                     >
                       Publizieren
+                    </button>
+                    <button
+                      className="rounded border border-red-300 px-2 py-1 text-red-700 disabled:opacity-60"
+                      disabled={isSuperuser && planTeamFilter === "all"}
+                      onClick={() => void deletePlan(plan.id)}
+                    >
+                      Löschen
                     </button>
                     <button
                       className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
