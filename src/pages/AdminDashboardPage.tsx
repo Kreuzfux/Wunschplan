@@ -12,6 +12,19 @@ interface SubmissionRow {
   is_submitted: boolean;
 }
 
+interface ShiftTypeOverrideRow {
+  shift_type_id: string;
+  override_start_time: string;
+  override_end_time: string;
+}
+
+interface EditableShiftTime {
+  shiftTypeId: string;
+  name: string;
+  start: string;
+  end: string;
+}
+
 const MONTH_OPTIONS = [
   { value: 1, label: "Januar" },
   { value: 2, label: "Februar" },
@@ -34,6 +47,8 @@ export function AdminDashboardPage() {
   const [shifts, setShifts] = useState<ShiftType[]>([]);
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [shiftEditorPlanId, setShiftEditorPlanId] = useState<string | null>(null);
+  const [editableShiftTimes, setEditableShiftTimes] = useState<EditableShiftTime[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [planMonth, setPlanMonth] = useState(now.getMonth() + 1);
   const [planYear, setPlanYear] = useState(now.getFullYear());
@@ -54,6 +69,12 @@ export function AdminDashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (!plans.length) return;
+    if (!selectedPlanId) setSelectedPlanId(plans[0].id);
+    if (!shiftEditorPlanId) setShiftEditorPlanId(plans[0].id);
+  }, [plans, selectedPlanId, shiftEditorPlanId]);
+
+  useEffect(() => {
     if (!selectedPlanId) return;
     supabase
       .from("wish_submissions")
@@ -61,6 +82,33 @@ export function AdminDashboardPage() {
       .eq("monthly_plan_id", selectedPlanId)
       .then(({ data }) => setSubmissions((data ?? []) as SubmissionRow[]));
   }, [selectedPlanId]);
+
+  useEffect(() => {
+    if (!shiftEditorPlanId || !shifts.length) {
+      setEditableShiftTimes([]);
+      return;
+    }
+
+    supabase
+      .from("shift_type_overrides")
+      .select("shift_type_id,override_start_time,override_end_time")
+      .eq("monthly_plan_id", shiftEditorPlanId)
+      .then(({ data }) => {
+        const overrides = (data ?? []) as ShiftTypeOverrideRow[];
+        const overrideMap = new Map(overrides.map((item) => [item.shift_type_id, item]));
+        setEditableShiftTimes(
+          shifts.map((shift) => {
+            const override = overrideMap.get(shift.id);
+            return {
+              shiftTypeId: shift.id,
+              name: shift.name,
+              start: override?.override_start_time ?? shift.default_start_time,
+              end: override?.override_end_time ?? shift.default_end_time,
+            };
+          }),
+        );
+      });
+  }, [shiftEditorPlanId, shifts]);
 
   async function createSelectedMonthPlan() {
     if (!Number.isInteger(planMonth) || planMonth < 1 || planMonth > 12 || !Number.isInteger(planYear)) {
@@ -113,6 +161,23 @@ export function AdminDashboardPage() {
     const title = `Dienstplan ${format(new Date(), "MMMM yyyy", { locale: de })}`;
     exportSchedulePdf(title, rows);
     await exportScheduleExcel(title, rows);
+  }
+
+  function updateEditableShiftTime(shiftTypeId: string, field: "start" | "end", value: string) {
+    setEditableShiftTimes((prev) =>
+      prev.map((item) => (item.shiftTypeId === shiftTypeId ? { ...item, [field]: value } : item)),
+    );
+  }
+
+  async function saveShiftTimeOverride(item: EditableShiftTime) {
+    if (!shiftEditorPlanId) return;
+    const { error } = await supabase.from("shift_type_overrides").upsert({
+      monthly_plan_id: shiftEditorPlanId,
+      shift_type_id: item.shiftTypeId,
+      override_start_time: item.start,
+      override_end_time: item.end,
+    });
+    setNotice(error ? error.message : `Schichtzeit fuer '${item.name}' gespeichert.`);
   }
 
   return (
@@ -192,14 +257,52 @@ export function AdminDashboardPage() {
 
       <section className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl bg-white p-4 shadow">
-          <h2 className="font-medium">Schichttypen</h2>
-          <ul className="mt-2 space-y-2 text-sm">
-            {shifts.map((shift) => (
-              <li key={shift.id} className="flex items-center justify-between rounded border p-2">
-                <span>{shift.name}</span>
-                <span>{shift.default_start_time} - {shift.default_end_time}</span>
+          <h2 className="font-medium">Schichtzeiten pro Monat</h2>
+          <p className="mt-1 text-sm text-slate-600">Diese Zeiten sehen Mitarbeiter bei der Wunschplanung.</p>
+          <label className="mt-3 block text-sm">
+            Monat fuer Schichtzeiten
+            <select
+              className="ml-2 rounded border px-2 py-1"
+              value={shiftEditorPlanId ?? ""}
+              onChange={(e) => setShiftEditorPlanId(e.target.value || null)}
+            >
+              {plans.map((plan) => (
+                <option key={plan.id} value={plan.id}>
+                  {`${plan.month}.${plan.year} (${plan.status})`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <ul className="mt-3 space-y-2 text-sm">
+            {editableShiftTimes.map((item) => (
+              <li key={item.shiftTypeId} className="rounded border p-2">
+                <div className="mb-2 font-medium">{item.name}</div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label>
+                    Start
+                    <input
+                      className="ml-2 rounded border px-2 py-1"
+                      type="time"
+                      value={item.start}
+                      onChange={(e) => updateEditableShiftTime(item.shiftTypeId, "start", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Ende
+                    <input
+                      className="ml-2 rounded border px-2 py-1"
+                      type="time"
+                      value={item.end}
+                      onChange={(e) => updateEditableShiftTime(item.shiftTypeId, "end", e.target.value)}
+                    />
+                  </label>
+                  <button className="rounded border px-3 py-1" onClick={() => void saveShiftTimeOverride(item)}>
+                    Speichern
+                  </button>
+                </div>
               </li>
             ))}
+            {!editableShiftTimes.length ? <li className="text-slate-500">Keine Schichttypen gefunden.</li> : null}
           </ul>
         </div>
         <div className="rounded-xl bg-white p-4 shadow">
