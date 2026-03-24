@@ -25,6 +25,7 @@ export interface ShiftType {
   default_end_time: string;
   color: string;
   sort_order: number;
+  is_active: boolean;
 }
 
 export interface ShiftWish {
