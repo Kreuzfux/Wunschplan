@@ -257,12 +257,48 @@ export function AdminDashboardPage() {
                   <td className="p-2">{`${plan.month}.${plan.year}`}</td>
                   <td className="p-2">{plan.status}</td>
                   <td className="flex flex-wrap gap-2 p-2">
-                    <button className="rounded border px-2 py-1" onClick={() ***REMOVED*** void updatePlanStatus(plan.id, "open")}>Open</button>
-                    <button className="rounded border px-2 py-1" onClick={() ***REMOVED*** void updatePlanStatus(plan.id, "closed")}>Close</button>
-                    <button className="rounded border px-2 py-1" onClick={() ***REMOVED*** void triggerGeneration(plan.id)}>Generieren</button>
-                    <button className="rounded border px-2 py-1" onClick={() ***REMOVED*** void updatePlanStatus(plan.id, "published")}>Publizieren</button>
-                    <button className="rounded border px-2 py-1" onClick={() ***REMOVED*** setSelectedPlanId(plan.id)}>Abgaben</button>
-                    <button className="rounded border px-2 py-1" onClick={() ***REMOVED*** void handleExport(plan.id)}>PDF/Excel</button>
+                    <button
+                      className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
+                      title="Setzt den Monat auf 'open', damit Mitarbeiter ihre Wuensche eintragen koennen."
+                      onClick={() ***REMOVED*** void updatePlanStatus(plan.id, "open")}
+                    >
+                      Open
+                    </button>
+                    <button
+                      className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
+                      title="Setzt den Monat auf 'closed' und verhindert weitere Eintraege."
+                      onClick={() ***REMOVED*** void updatePlanStatus(plan.id, "closed")}
+                    >
+                      Close
+                    </button>
+                    <button
+                      className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
+                      title="Startet die automatische Dienstplan-Generierung fuer den ausgewaehlten Monat."
+                      onClick={() ***REMOVED*** void triggerGeneration(plan.id)}
+                    >
+                      Generieren
+                    </button>
+                    <button
+                      className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
+                      title="Veroeffentlicht den Plan, damit Mitarbeiter den finalen Dienstplan sehen."
+                      onClick={() ***REMOVED*** void updatePlanStatus(plan.id, "published")}
+                    >
+                      Publizieren
+                    </button>
+                    <button
+                      className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
+                      title="Zeigt den Abgabestatus der Mitarbeiter fuer diesen Monat."
+                      onClick={() ***REMOVED*** setSelectedPlanId(plan.id)}
+                    >
+                      Abgaben
+                    </button>
+                    <button
+                      className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
+                      title="Exportiert den Dienstplan als PDF und Excel-Datei."
+                      onClick={() ***REMOVED*** void handleExport(plan.id)}
+                    >
+                      PDF/Excel
+                    </button>
                   </td>
                 </tr>
               ))}
