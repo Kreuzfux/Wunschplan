@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDays, endOfMonth, format, isSameMonth, startOfMonth } from "date-fns";
+import { addDays, endOfMonth, format, startOfMonth } from "date-fns";
 import { de } from "date-fns/locale";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/providers/AuthProvider";
@@ -25,11 +25,12 @@ interface DisplayShift {
 export function EmployeeDashboardPage() {
   const { profile, signOut } = useAuth();
   const { plan, loading } = useMonthlyPlan();
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [shifts, setShifts] = useState<DisplayShift[]>([]);
   const [selectedShiftTypeIds, setSelectedShiftTypeIds] = useState<string[]>([]);
   const [remarks, setRemarks] = useState("");
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const days = useMemo(() => {
     if (!plan) return [];
@@ -83,7 +84,8 @@ export function EmployeeDashboardPage() {
   }, [plan, shifts.length]);
 
   useEffect(() => {
-    if (!selectedDate || !plan || !profile) return;
+    if (!plan || !profile || selectedDates.length !== 1) return;
+    const selectedDate = selectedDates[0];
     supabase
       .from("shift_wishes")
       .select("remarks,shift_type_id")
@@ -95,27 +97,59 @@ export function EmployeeDashboardPage() {
         setRemarks(rows[0]?.remarks ?? "");
         setSelectedShiftTypeIds(rows.map((row) => row.shift_type_id).filter(Boolean));
       });
-  }, [plan, profile, selectedDate]);
+  }, [plan, profile, selectedDates]);
+
+  useEffect(() => {
+    if (selectedDates.length > 1) {
+      setRemarks("");
+      setSelectedShiftTypeIds([]);
+    }
+  }, [selectedDates.length]);
 
   async function saveWish() {
-    if (!selectedDate || !plan || !profile || !selectedShiftTypeIds.length) return;
-    await supabase
-      .from("shift_wishes")
-      .delete()
-      .eq("monthly_plan_id", plan.id)
-      .eq("employee_id", profile.id)
-      .eq("date", selectedDate);
-    await supabase.from("shift_wishes").insert(
-      selectedShiftTypeIds.map((shiftTypeId) => ({
-        monthly_plan_id: plan.id,
-        employee_id: profile.id,
-        date: selectedDate,
-        shift_type_id: shiftTypeId,
-        wish_type: "available",
-        remarks,
-      })),
-    );
-    setSavedMessage("Wunsch gespeichert.");
+    if (!selectedDates.length || !plan || !profile || !selectedShiftTypeIds.length) return;
+    setErrorMessage(null);
+    for (const selectedDate of selectedDates) {
+      const { error: deleteError } = await supabase
+        .from("shift_wishes")
+        .delete()
+        .eq("monthly_plan_id", plan.id)
+        .eq("employee_id", profile.id)
+        .eq("date", selectedDate);
+      if (deleteError) {
+        setErrorMessage(deleteError.message);
+        return;
+      }
+
+      const { error: insertError } = await supabase.from("shift_wishes").insert(
+        selectedShiftTypeIds.map((shiftTypeId) => ({
+          monthly_plan_id: plan.id,
+          employee_id: profile.id,
+          date: selectedDate,
+          shift_type_id: shiftTypeId,
+          wish_type: "available",
+          remarks,
+        })),
+      );
+      if (insertError) {
+        setErrorMessage(insertError.message);
+        return;
+      }
+    }
+
+    // Ensure employee appears in admin submission status as "Offen"
+    // until they explicitly submit the full monthly plan.
+    const { error: submissionError } = await supabase.from("wish_submissions").upsert({
+      monthly_plan_id: plan.id,
+      employee_id: profile.id,
+      is_submitted: false,
+    });
+    if (submissionError) {
+      setErrorMessage(submissionError.message);
+      return;
+    }
+
+    setSavedMessage(`Wunsch für ${selectedDates.length} Tag(e) gespeichert.`);
     setTimeout(() => setSavedMessage(null), 1800);
   }
 
@@ -125,14 +159,25 @@ export function EmployeeDashboardPage() {
     );
   }
 
+  function toggleDateSelection(dateKey: string) {
+    setSelectedDates((prev) =>
+      prev.includes(dateKey) ? prev.filter((item) => item !== dateKey) : [...prev, dateKey],
+    );
+  }
+
   async function submitPlan() {
     if (!plan || !profile) return;
-    await supabase.from("wish_submissions").upsert({
+    setErrorMessage(null);
+    const { error } = await supabase.from("wish_submissions").upsert({
       monthly_plan_id: plan.id,
       employee_id: profile.id,
       is_submitted: true,
       submitted_at: new Date().toISOString(),
     });
+    if (error) {
+      setErrorMessage(error.message);
+      return;
+    }
     setSavedMessage("Wunschplan erfolgreich eingereicht.");
   }
 
@@ -166,18 +211,18 @@ export function EmployeeDashboardPage() {
               Wunschplanung {format(new Date(plan.year, plan.month - 1, 1), "MMMM yyyy", { locale: de })}
             </h2>
             <p className="text-sm text-slate-600">Mitarbeiter: {profile?.full_name}</p>
-            <p className="text-sm text-slate-600">Tippe einen Tag an, um Schicht und Bemerkung zu erfassen.</p>
+            <p className="text-sm text-slate-600">Tippe einen oder mehrere Tage an, um Schicht und Bemerkung zu erfassen.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-4 shadow sm:grid-cols-4 md:grid-cols-7">
             {days.map((day) => {
               const key = format(day, "yyyy-MM-dd");
-              const active = selectedDate === key;
+              const active = selectedDates.includes(key);
               return (
                 <button
                   key={key}
                   className={`rounded border p-3 text-left text-sm ${active ? "border-slate-900 bg-slate-100" : "border-slate-200"}`}
-                  onClick={() => setSelectedDate(key)}
+                  onClick={() => toggleDateSelection(key)}
                 >
                   <div className="font-medium">{format(day, "dd.MM.")}</div>
                   <div className="text-xs text-slate-500">{format(day, "EEE", { locale: de })}</div>
@@ -186,9 +231,11 @@ export function EmployeeDashboardPage() {
             })}
           </div>
 
-          {selectedDate && isSameMonth(new Date(selectedDate), new Date(plan.year, plan.month - 1, 1)) ? (
+          {selectedDates.length ? (
             <div className="rounded-xl bg-white p-4 shadow">
-              <h3 className="font-medium">Eintrag für {format(new Date(selectedDate), "PPPP", { locale: de })}</h3>
+              <h3 className="font-medium">
+                Eintrag für {selectedDates.length === 1 ? format(new Date(selectedDates[0]), "PPPP", { locale: de }) : `${selectedDates.length} ausgewählte Tage`}
+              </h3>
               <p className="mt-1 text-sm text-slate-600">Waehle die Schichtzeit, die der Admin freigegeben hat.</p>
               <div className="mt-3 space-y-2">
                 {shifts.map((shift) => (
@@ -223,11 +270,15 @@ export function EmployeeDashboardPage() {
                 >
                   Wunsch speichern
                 </button>
+                <button className="rounded border px-4 py-2 text-sm" onClick={() => setSelectedDates([])}>
+                  Auswahl leeren
+                </button>
                 <button className="rounded border px-4 py-2 text-sm" onClick={() => void submitPlan()}>
                   Wunschplan einreichen
                 </button>
               </div>
               {savedMessage ? <p className="mt-2 text-sm text-green-700">{savedMessage}</p> : null}
+              {errorMessage ? <p className="mt-2 text-sm text-red-700">{errorMessage}</p> : null}
             </div>
           ) : null}
         </section>
