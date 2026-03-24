@@ -1,13 +1,22 @@
-import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { FormEvent, useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (location.search.includes("reset=1")) {
+      setResetMessage("Lokale Daten wurden erfolgreich zurückgesetzt.");
+      navigate("/login", { replace: true });
+    }
+  }, [location.search, navigate]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -49,7 +58,10 @@ export function LoginPage() {
       document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/Wunschplan`;
     });
 
-    window.location.replace("/Wunschplan/#/login?reset=1");
+    setResetMessage("Lokale Daten werden zurückgesetzt...");
+    setTimeout(() => {
+      window.location.replace("/Wunschplan/#/login?reset=1");
+    }, 450);
   }
 
   return (
@@ -65,6 +77,7 @@ export function LoginPage() {
           <input className="w-full rounded border px-3 py-2" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {resetMessage ? <p className="text-sm text-green-700">{resetMessage}</p> : null}
         <button className="w-full rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-60" disabled={loading} type="submit">
           {loading ? "Anmeldung läuft..." : "Einloggen"}
         </button>
