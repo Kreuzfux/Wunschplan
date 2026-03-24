@@ -12,6 +12,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 const ADMIN_EMAIL = "nitzschkepa@yahoo.de";
+const ADMIN_USER_ID = "b6210438-2ad6-4387-b4d6-99ba8f87cd76";
 
 function buildFallbackProfile(session: Session): Profile {
   const email = session.user.email ?? "";
@@ -22,7 +23,10 @@ function buildFallbackProfile(session: Session): Profile {
     id: session.user.id,
     email,
     full_name: fullName,
-    role: email.toLowerCase() === ADMIN_EMAIL ? "admin" : "employee",
+    role:
+      session.user.id === ADMIN_USER_ID || email.toLowerCase() === ADMIN_EMAIL
+        ? "admin"
+        : "employee",
     has_drivers_license: Boolean(session.user.user_metadata?.has_drivers_license),
     is_active: true,
   };
