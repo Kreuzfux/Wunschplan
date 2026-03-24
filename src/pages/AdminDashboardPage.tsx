@@ -53,6 +53,7 @@ export function AdminDashboardPage() {
   const [planMonth, setPlanMonth] = useState(now.getMonth() + 1);
   const [planYear, setPlanYear] = useState(now.getFullYear());
   const yearOptions = Array.from({ length: 6 }, (_, i) => now.getFullYear() + i);
+  const activeShifts = shifts.filter((shift) => shift.is_active !== false);
 
   async function reloadPlans() {
     const { data } = await supabase
@@ -63,9 +64,14 @@ export function AdminDashboardPage() {
     setPlans(data ?? []);
   }
 
+  async function reloadShifts() {
+    const { data } = await supabase.from("shift_types").select("*").order("sort_order");
+    setShifts(data ?? []);
+  }
+
   useEffect(() => {
     void reloadPlans();
-    supabase.from("shift_types").select("*").order("sort_order").then(({ data }) => setShifts(data ?? []));
+    void reloadShifts();
   }, []);
 
   useEffect(() => {
@@ -97,7 +103,9 @@ export function AdminDashboardPage() {
         const overrides = (data ?? []) as ShiftTypeOverrideRow[];
         const overrideMap = new Map(overrides.map((item) => [item.shift_type_id, item]));
         setEditableShiftTimes(
-          shifts.map((shift) => {
+          shifts
+            .filter((shift) => shift.is_active !== false)
+            .map((shift) => {
             const override = overrideMap.get(shift.id);
             return {
               shiftTypeId: shift.id,
@@ -105,7 +113,7 @@ export function AdminDashboardPage() {
               start: override?.override_start_time ?? shift.default_start_time,
               end: override?.override_end_time ?? shift.default_end_time,
             };
-          }),
+            }),
         );
       });
   }, [shiftEditorPlanId, shifts]);
@@ -178,6 +186,14 @@ export function AdminDashboardPage() {
       override_end_time: item.end,
     });
     setNotice(error ? error.message : `Schichtzeit fuer '${item.name}' gespeichert.`);
+  }
+
+  async function deleteShiftType(shiftTypeId: string, shiftName: string) {
+    const { error } = await supabase.from("shift_types").update({ is_active: false }).eq("id", shiftTypeId);
+    setNotice(error ? error.message : `Schicht '${shiftName}' wurde geloescht.`);
+    if (!error) {
+      await reloadShifts();
+    }
   }
 
   return (
@@ -299,10 +315,13 @@ export function AdminDashboardPage() {
                   <button className="rounded border px-3 py-1" onClick={() => void saveShiftTimeOverride(item)}>
                     Speichern
                   </button>
+                  <button className="rounded border border-red-300 px-3 py-1 text-red-700" onClick={() => void deleteShiftType(item.shiftTypeId, item.name)}>
+                    Loeschen
+                  </button>
                 </div>
               </li>
             ))}
-            {!editableShiftTimes.length ? <li className="text-slate-500">Keine Schichttypen gefunden.</li> : null}
+            {!activeShifts.length ? <li className="text-slate-500">Keine aktiven Schichttypen gefunden.</li> : null}
           </ul>
         </div>
         <div className="rounded-xl bg-white p-4 shadow">

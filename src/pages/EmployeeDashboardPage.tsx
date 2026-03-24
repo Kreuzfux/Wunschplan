@@ -27,7 +27,7 @@ export function EmployeeDashboardPage() {
   const { plan, loading } = useMonthlyPlan();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [shifts, setShifts] = useState<DisplayShift[]>([]);
-  const [selectedShiftTypeId, setSelectedShiftTypeId] = useState<string | null>(null);
+  const [selectedShiftTypeIds, setSelectedShiftTypeIds] = useState<string[]>([]);
   const [remarks, setRemarks] = useState("");
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
@@ -46,7 +46,7 @@ export function EmployeeDashboardPage() {
       .select("*")
       .order("sort_order")
       .then(({ data }) => {
-        const baseShifts = (data ?? []) as ShiftType[];
+        const baseShifts = ((data ?? []) as ShiftType[]).filter((shift) => shift.is_active !== false);
         setShifts(
           baseShifts.map((shift) => ({
             id: shift.id,
@@ -90,31 +90,39 @@ export function EmployeeDashboardPage() {
       .eq("monthly_plan_id", plan.id)
       .eq("employee_id", profile.id)
       .eq("date", selectedDate)
-      .maybeSingle()
       .then(({ data }) => {
-        setRemarks(data?.remarks ?? "");
-        setSelectedShiftTypeId(data?.shift_type_id ?? null);
+        const rows = data ?? [];
+        setRemarks(rows[0]?.remarks ?? "");
+        setSelectedShiftTypeIds(rows.map((row) => row.shift_type_id).filter(Boolean));
       });
   }, [plan, profile, selectedDate]);
 
   async function saveWish() {
-    if (!selectedDate || !plan || !profile || !selectedShiftTypeId) return;
+    if (!selectedDate || !plan || !profile || !selectedShiftTypeIds.length) return;
     await supabase
       .from("shift_wishes")
       .delete()
       .eq("monthly_plan_id", plan.id)
       .eq("employee_id", profile.id)
       .eq("date", selectedDate);
-    await supabase.from("shift_wishes").insert({
-      monthly_plan_id: plan.id,
-      employee_id: profile.id,
-      date: selectedDate,
-      shift_type_id: selectedShiftTypeId,
-      wish_type: "available",
-      remarks,
-    });
+    await supabase.from("shift_wishes").insert(
+      selectedShiftTypeIds.map((shiftTypeId) => ({
+        monthly_plan_id: plan.id,
+        employee_id: profile.id,
+        date: selectedDate,
+        shift_type_id: shiftTypeId,
+        wish_type: "available",
+        remarks,
+      })),
+    );
     setSavedMessage("Wunsch gespeichert.");
     setTimeout(() => setSavedMessage(null), 1800);
+  }
+
+  function toggleShiftSelection(shiftTypeId: string) {
+    setSelectedShiftTypeIds((prev) =>
+      prev.includes(shiftTypeId) ? prev.filter((id) => id !== shiftTypeId) : [...prev, shiftTypeId],
+    );
   }
 
   async function submitPlan() {
@@ -187,10 +195,9 @@ export function EmployeeDashboardPage() {
                   <label key={shift.id} className="flex items-center justify-between rounded border p-2 text-sm">
                     <span className="flex items-center gap-2">
                       <input
-                        type="radio"
-                        name="shift-type"
-                        checked={selectedShiftTypeId === shift.id}
-                        onChange={() => setSelectedShiftTypeId(shift.id)}
+                        type="checkbox"
+                        checked={selectedShiftTypeIds.includes(shift.id)}
+                        onChange={() => toggleShiftSelection(shift.id)}
                       />
                       {shift.name}
                     </span>
@@ -211,7 +218,7 @@ export function EmployeeDashboardPage() {
               <div className="mt-3 flex gap-2">
                 <button
                   className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
-                  disabled={!selectedShiftTypeId}
+                  disabled={!selectedShiftTypeIds.length}
                   onClick={() => void saveWish()}
                 >
                   Wunsch speichern
