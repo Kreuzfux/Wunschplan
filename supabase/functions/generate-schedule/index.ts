@@ -41,7 +41,6 @@ serve(async (req) ***REMOVED*** {
     const email = authData.user.email?.toLowerCase() ?? "";
     const canGenerate =
       profile?.role ***REMOVED*** "admin" ||
-      profile?.role ***REMOVED*** "superuser" ||
       authData.user.id ***REMOVED*** ADMIN_USER_ID ||
       email ***REMOVED*** ADMIN_EMAIL;
     if (!canGenerate) {
