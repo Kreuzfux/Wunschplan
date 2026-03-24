@@ -322,10 +322,35 @@ export function AdminDashboardPage() {
       return;
     }
 
+    let targetTeamId: string | null = shiftTeamFilter;
+    if (isSuperuser) {
+      if (!profile?.id) {
+        setNotice("Superuser-Profil konnte nicht bestimmt werden. Bitte neu anmelden.");
+        return;
+      }
+      const { data: ownProfile, error: ownProfileError } = await supabase
+        .from("profiles")
+        .select("team_id")
+        .eq("id", profile.id)
+        .maybeSingle();
+      if (ownProfileError) {
+        setNotice(ownProfileError.message);
+        return;
+      }
+      targetTeamId = ownProfile?.team_id ?? null;
+      if (targetTeamId) {
+        setShiftTeamFilter(targetTeamId);
+      }
+    }
+    if (!targetTeamId) {
+      setNotice("Kein gültiges Team für die neue Schicht gefunden.");
+      return;
+    }
+
     const maxSortOrder = shifts.reduce((max, shift) => Math.max(max, shift.sort_order ?? 0), 0);
     const { error } = await supabase.from("shift_types").insert({
       name: trimmedName,
-      team_id: shiftTeamFilter,
+      team_id: targetTeamId,
       default_start_time: newShiftStart,
       default_end_time: newShiftEnd,
       color: newShiftColor || "#3B82F6",
