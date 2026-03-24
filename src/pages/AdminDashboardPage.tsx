@@ -10,9 +10,7 @@ import { useAuth } from "@/providers/AuthProvider";
 interface SubmissionRow {
   employee_id: string;
   is_submitted: boolean;
-  profiles?: Array<{
-    full_name: string;
-  }> | null;
+  full_name?: string;
 }
 
 interface ShiftTypeOverrideRow {
@@ -73,11 +71,35 @@ export function AdminDashboardPage() {
   }
 
   async function reloadSubmissions(planId: string) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("wish_submissions")
-      .select("employee_id,is_submitted,profiles!wish_submissions_employee_id_fkey(full_name)")
+      .select("employee_id,is_submitted")
       .eq("monthly_plan_id", planId);
-    setSubmissions((data ?? []) as SubmissionRow[]);
+    if (error) {
+      setSubmissions([]);
+      return;
+    }
+
+    const baseRows = (data ?? []) as Array<{ employee_id: string; is_submitted: boolean }>;
+    const employeeIds = Array.from(new Set(baseRows.map((row) => row.employee_id)));
+    if (!employeeIds.length) {
+      setSubmissions([]);
+      return;
+    }
+
+    const { data: profileRows } = await supabase
+      .from("profiles")
+      .select("id,full_name")
+      .in("id", employeeIds);
+    const nameMap = new Map((profileRows ?? []).map((row: any) => [row.id, row.full_name as string]));
+
+    setSubmissions(
+      baseRows.map((row) => ({
+        employee_id: row.employee_id,
+        is_submitted: row.is_submitted,
+        full_name: nameMap.get(row.employee_id),
+      })),
+    );
   }
 
   useEffect(() => {
@@ -402,7 +424,7 @@ export function AdminDashboardPage() {
           <ul className="mt-2 space-y-2 text-sm">
             {submissions.map((submission) => (
               <li key={submission.employee_id} className="rounded border p-2">
-                {(submission.profiles?.[0]?.full_name ?? submission.employee_id)}: {submission.is_submitted ? "Eingereicht" : "Offen"}
+                {(submission.full_name ?? submission.employee_id)}: {submission.is_submitted ? "Eingereicht" : "Offen"}
               </li>
             ))}
             {!submissions.length ? <li className="text-slate-500">Keine Einträge.</li> : null}
