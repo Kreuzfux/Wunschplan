@@ -151,6 +151,12 @@ export function AdminDashboardPage() {
   }, [isSuperuser, profile?.team_id]);
 
   useEffect(() => {
+    if (!isAdmin && notice?.toLowerCase().includes("monthly_plans")) {
+      setNotice("Als Superuser hast du in der Monatsplanung nur Leserechte. Bitte Admin kontaktieren.");
+    }
+  }, [isAdmin, notice]);
+
+  useEffect(() => {
     if (!plans.length) return;
     if (!selectedPlanId) setSelectedPlanId(plans[0].id);
     if (!shiftEditorPlanId) setShiftEditorPlanId(plans[0].id);
@@ -429,7 +435,7 @@ export function AdminDashboardPage() {
   return (
     <main className="mx-auto max-w-7xl p-4 md:p-6">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Admin-Bereich</h1>
+        <h1 className="text-2xl font-semibold">{isSuperuser ? "Team-Admin Bereich" : "Admin-Bereich"}</h1>
         <button className="rounded border px-3 py-2 text-sm" onClick={() => void signOut()}>
           Ausloggen
         </button>
@@ -439,6 +445,11 @@ export function AdminDashboardPage() {
 
       <section className="mb-4 rounded-xl bg-white p-4 shadow">
         <h2 className="font-medium">Monatsplanung</h2>
+        {!isAdmin ? (
+          <p className="mt-1 text-sm text-slate-600">
+            Als Superuser hast du hier Leserechte. Anlegen, Statuswechsel und Generierung sind nur für Admins möglich.
+          </p>
+        ) : null}
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <label className="text-sm">
             Monat
