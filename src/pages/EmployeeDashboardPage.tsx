@@ -139,11 +139,16 @@ export function EmployeeDashboardPage() {
 
     // Ensure employee appears in admin submission status as "Offen"
     // until they explicitly submit the full monthly plan.
-    const { error: submissionError } = await supabase.from("wish_submissions").upsert({
-      monthly_plan_id: plan.id,
-      employee_id: profile.id,
-      is_submitted: false,
-    });
+    const { error: submissionError } = await supabase.from("wish_submissions").upsert(
+      {
+        monthly_plan_id: plan.id,
+        employee_id: profile.id,
+        is_submitted: false,
+      },
+      {
+        onConflict: "monthly_plan_id,employee_id",
+      },
+    );
     if (submissionError) {
       setErrorMessage(submissionError.message);
       return;
@@ -168,12 +173,17 @@ export function EmployeeDashboardPage() {
   async function submitPlan() {
     if (!plan || !profile) return;
     setErrorMessage(null);
-    const { error } = await supabase.from("wish_submissions").upsert({
-      monthly_plan_id: plan.id,
-      employee_id: profile.id,
-      is_submitted: true,
-      submitted_at: new Date().toISOString(),
-    });
+    const { error } = await supabase.from("wish_submissions").upsert(
+      {
+        monthly_plan_id: plan.id,
+        employee_id: profile.id,
+        is_submitted: true,
+        submitted_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "monthly_plan_id,employee_id",
+      },
+    );
     if (error) {
       setErrorMessage(error.message);
       return;
