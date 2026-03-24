@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/providers/AuthProvider";
 
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { session, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +19,12 @@ export function LoginPage() {
       navigate("/login", { replace: true });
     }
   }, [location.search, navigate]);
+
+  useEffect(() => {
+    if (!authLoading && session) {
+      navigate("/", { replace: true });
+    }
+  }, [authLoading, navigate, session]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -32,8 +40,8 @@ export function LoginPage() {
         return;
       }
 
-      // Let app-level auth routing decide destination based on role/session.
-      navigate("/");
+      // Route after sign-in; LoginPage effect handles delayed session propagation.
+      navigate("/", { replace: true });
     } catch {
       setLoading(false);
       setError("Anmeldung fehlgeschlagen. Bitte erneut versuchen.");
