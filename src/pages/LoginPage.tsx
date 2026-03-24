@@ -32,6 +32,9 @@ export function LoginPage() {
     setError(null);
 
     try {
+      // Clear potentially stale local auth session before a fresh password login.
+      await supabase.auth.signOut({ scope: "local" });
+
       const loginResult = await Promise.race([
         supabase.auth.signInWithPassword({ email, password }),
         new Promise<never>((_, reject) => {
