@@ -11,6 +11,22 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const ADMIN_EMAIL = "nitzschkepa@yahoo.de";
+
+function buildFallbackProfile(session: Session): Profile {
+  const email = session.user.email ?? "";
+  const fullName =
+    (session.user.user_metadata?.full_name as string | undefined) ??
+    (email ? email.split("@")[0] : "Benutzer");
+  return {
+    id: session.user.id,
+    email,
+    full_name: fullName,
+    role: email.toLowerCase() === ADMIN_EMAIL ? "admin" : "employee",
+    has_drivers_license: Boolean(session.user.user_metadata?.has_drivers_license),
+    is_active: true,
+  };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -21,8 +37,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
       if (data.session?.user.id) {
-        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", data.session.user.id).single();
-        setProfile(profileData ?? null);
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", data.session.user.id)
+          .maybeSingle();
+        setProfile(profileData ?? buildFallbackProfile(data.session));
       }
       setLoading(false);
     });
@@ -30,8 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = supabase.auth.onAuthStateChange(async (_, newSession) => {
       setSession(newSession);
       if (newSession?.user.id) {
-        const { data: profileData } = await supabase.from("profiles").select("*").eq("id", newSession.user.id).single();
-        setProfile(profileData ?? null);
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", newSession.user.id)
+          .maybeSingle();
+        setProfile(profileData ?? buildFallbackProfile(newSession));
       } else {
         setProfile(null);
       }
