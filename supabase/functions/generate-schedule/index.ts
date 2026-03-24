@@ -6,6 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+const ADMIN_EMAIL = "nitzschkepa@yahoo.de";
+const ADMIN_USER_ID = "b6210438-2ad6-4387-b4d6-99ba8f87cd76";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -35,8 +37,11 @@ serve(async (req) => {
       });
     }
 
-    const { data: profile } = await adminClient.from("profiles").select("role").eq("id", authData.user.id).single();
-    if (profile?.role !== "admin") {
+    const { data: profile } = await adminClient.from("profiles").select("role").eq("id", authData.user.id).maybeSingle();
+    const email = authData.user.email?.toLowerCase() ?? "";
+    const isAdmin =
+      profile?.role === "admin" || authData.user.id === ADMIN_USER_ID || email === ADMIN_EMAIL;
+    if (!isAdmin) {
       return new Response(JSON.stringify({ error: "Nur Admins dürfen generieren." }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

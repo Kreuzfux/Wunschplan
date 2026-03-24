@@ -10,6 +10,9 @@ import { useAuth } from "@/providers/AuthProvider";
 interface SubmissionRow {
   employee_id: string;
   is_submitted: boolean;
+  profiles?: {
+    full_name: string;
+  } | null;
 }
 
 interface ShiftTypeOverrideRow {
@@ -69,6 +72,14 @@ export function AdminDashboardPage() {
     setShifts(data ?? []);
   }
 
+  async function reloadSubmissions(planId: string) {
+    const { data } = await supabase
+      .from("wish_submissions")
+      .select("employee_id,is_submitted,profiles!wish_submissions_employee_id_fkey(full_name)")
+      .eq("monthly_plan_id", planId);
+    setSubmissions((data ?? []) as SubmissionRow[]);
+  }
+
   useEffect(() => {
     void reloadPlans();
     void reloadShifts();
@@ -82,11 +93,27 @@ export function AdminDashboardPage() {
 
   useEffect(() => {
     if (!selectedPlanId) return;
-    supabase
-      .from("wish_submissions")
-      .select("employee_id,is_submitted")
-      .eq("monthly_plan_id", selectedPlanId)
-      .then(({ data }) => setSubmissions((data ?? []) as SubmissionRow[]));
+    void reloadSubmissions(selectedPlanId);
+
+    const channel = supabase
+      .channel(`wish-submissions-${selectedPlanId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "wish_submissions",
+          filter: `monthly_plan_id=eq.${selectedPlanId}`,
+        },
+        () => {
+          void reloadSubmissions(selectedPlanId);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, [selectedPlanId]);
 
   useEffect(() => {
@@ -371,11 +398,11 @@ export function AdminDashboardPage() {
         </div>
         <div className="rounded-xl bg-white p-4 shadow">
           <h2 className="font-medium">Abgabestatus</h2>
-          <p className="text-sm text-slate-600">Echtzeitfähig über Supabase Realtime erweiterbar.</p>
+          <p className="text-sm text-slate-600">Aktualisiert sich automatisch über Supabase Realtime.</p>
           <ul className="mt-2 space-y-2 text-sm">
             {submissions.map((submission) => (
               <li key={submission.employee_id} className="rounded border p-2">
-                {submission.employee_id}: {submission.is_submitted ? "Eingereicht" : "Offen"}
+                {(submission.profiles?.full_name ?? submission.employee_id)}: {submission.is_submitted ? "Eingereicht" : "Offen"}
               </li>
             ))}
             {!submissions.length ? <li className="text-slate-500">Keine Einträge.</li> : null}
