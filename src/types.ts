@@ -1,10 +1,17 @@
-export type UserRole = "admin" | "employee";
+export type UserRole = "superuser" | "admin" | "employee";
+
+export interface Team {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
 
 export interface Profile {
   id: string;
   email: string;
   full_name: string;
   role: UserRole;
+  team_id: string | null;
   has_drivers_license: boolean;
   is_active: boolean;
 }
