@@ -72,7 +72,13 @@ export function LoginPage() {
 
   async function handleResetLocalData() {
     try {
-      await supabase.auth.signOut();
+      // Never let remote sign-out block local reset/navigation.
+      await Promise.race([
+        supabase.auth.signOut({ scope: "local" }),
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, 1500);
+        }),
+      ]);
     } catch {
       // Ignore signout errors and continue with local cleanup.
     }
@@ -90,7 +96,8 @@ export function LoginPage() {
 
     setResetMessage("Lokale Daten werden zurückgesetzt...");
     setTimeout(() => {
-      window.location.replace("/Wunschplan/#/login?reset=1");
+      const basePath = window.location.pathname.includes("/Wunschplan") ? "/Wunschplan" : "";
+      window.location.replace(`${basePath}/#/login?reset=1`);
     }, 450);
   }
 
