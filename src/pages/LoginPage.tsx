@@ -14,21 +14,21 @@ export function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      setLoading(false);
 
-    if (signInError) {
-      setError(signInError.message);
-      return;
-    }
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
 
-    const userId = data.user?.id;
-    if (userId) {
-      const { data: profileData } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
-      navigate(profileData?.role === "admin" ? "/admin" : "/dashboard");
-      return;
+      // Let app-level auth routing decide destination based on role/session.
+      navigate("/");
+    } catch {
+      setLoading(false);
+      setError("Anmeldung fehlgeschlagen. Bitte erneut versuchen.");
     }
-    navigate("/dashboard");
   }
 
   async function handleResetLocalData() {
