@@ -18,6 +18,7 @@ export function ProfilePage() {
   const { profile } = useAuth();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [maxShifts, setMaxShifts] = useState<string>("31");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -27,6 +28,21 @@ export function ProfilePage() {
     setFullName(profile?.full_name ?? "");
     setEmail(profile?.email ?? "");
   }, [profile?.email, profile?.full_name]);
+
+  useEffect(() => {
+    async function loadLimit() {
+      if (!profile?.id) return;
+      const { data, error } = await supabase
+        .from("employee_shift_limits")
+        .select("max_shifts_per_month")
+        .eq("employee_id", profile.id)
+        .maybeSingle();
+      if (error) return;
+      const value = (data as any)?.max_shifts_per_month;
+      if (typeof value === "number") setMaxShifts(String(value));
+    }
+    void loadLimit();
+  }, [profile?.id]);
 
   useEffect(() => {
     if (!avatarFile) {
@@ -59,6 +75,22 @@ export function ProfilePage() {
     const { error: profileError } = await supabase.from("profiles").update({ full_name: nextName }).eq("id", profile.id);
     if (profileError) {
       setNotice(profileError.message);
+      setBusy(false);
+      return;
+    }
+
+    // 1b) Update max shifts (employee-controlled limit for generation).
+    const parsedLimit = Number.parseInt(maxShifts.trim() || "31", 10);
+    if (!Number.isFinite(parsedLimit) || parsedLimit < 0 || parsedLimit > 366) {
+      setNotice("Max. Schichten/Monat: bitte Zahl zwischen 0 und 366 eingeben.");
+      setBusy(false);
+      return;
+    }
+    const { error: limitError } = await supabase
+      .from("employee_shift_limits")
+      .upsert({ employee_id: profile.id, max_shifts_per_month: parsedLimit }, { onConflict: "employee_id" });
+    if (limitError) {
+      setNotice(limitError.message);
       setBusy(false);
       return;
     }
@@ -158,6 +190,21 @@ export function ProfilePage() {
               onChange={(e) => setEmail(e.target.value)}
               disabled={busy}
             />
+          </label>
+          <label className="block">
+            Max. Schichten pro Monat
+            <input
+              className="mt-1 w-full rounded border px-3 py-2"
+              type="number"
+              min={0}
+              max={366}
+              value={maxShifts}
+              onChange={(e) => setMaxShifts(e.target.value)}
+              disabled={busy}
+            />
+            <span className="mt-1 block text-xs text-slate-600">
+              Dieses Limit berücksichtigt die automatische Dienstplan-Generierung.
+            </span>
           </label>
           <button
             className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
