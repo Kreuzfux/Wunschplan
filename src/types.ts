@@ -14,6 +14,7 @@ export interface Profile {
   team_id: string | null;
   has_drivers_license: boolean;
   is_active: boolean;
+  avatar_url?: string | null;
 }
 
 export interface MonthlyPlan {

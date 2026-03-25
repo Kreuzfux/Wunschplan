@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import type {
   AuditLogEntry,
@@ -687,9 +688,14 @@ export function AdminDashboardPage() {
     <main className="mx-auto max-w-7xl p-4 md:p-6">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{isSuperuser ? "Team-Admin Bereich" : "Admin-Bereich"}</h1>
-        <button className="rounded border px-3 py-2 text-sm" onClick={() => void signOut()}>
-          Ausloggen
-        </button>
+        <div className="flex items-center gap-2">
+          <Link className="rounded border px-3 py-2 text-sm" to="/profil">
+            Profil
+          </Link>
+          <button className="rounded border px-3 py-2 text-sm" onClick={() => void signOut()}>
+            Ausloggen
+          </button>
+        </div>
       </header>
 
       {notice ? <p className="mb-3 rounded bg-slate-100 p-3 text-sm">{notice}</p> : null}

@@ -4,6 +4,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { EmployeeDashboardPage } from "@/pages/EmployeeDashboardPage";
 import { AdminDashboardPage } from "@/pages/AdminDashboardPage";
+import { ProfilePage } from "@/pages/ProfilePage";
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { session, loading } = useAuth();
@@ -49,6 +50,14 @@ export default function App() {
               <AdminRoute>
                 <AdminDashboardPage />
               </AdminRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profil"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
             </ProtectedRoute>
           }
         />

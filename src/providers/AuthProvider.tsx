@@ -53,6 +53,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  async function ensureProfileEmailMatchesAuth(userId: string, authEmail: string | null | undefined) {
+    const normalizedAuthEmail = (authEmail ?? "").trim();
+    if (!normalizedAuthEmail) return;
+    const { data: profileRow } = await supabase.from("profiles").select("email").eq("id", userId).maybeSingle();
+    const currentProfileEmail = String((profileRow as any)?.email ?? "").trim();
+    if (!currentProfileEmail) return;
+    if (currentProfileEmail.toLowerCase() === normalizedAuthEmail.toLowerCase()) return;
+    // Best-effort sync, ignore errors (RLS may block in some edge cases).
+    await supabase.from("profiles").update({ email: normalizedAuthEmail }).eq("id", userId);
+  }
+
   useEffect(() => {
     async function initializeAuth() {
       try {
@@ -77,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setSession(initialSession);
         if (initialSession?.user.id) {
+          await ensureProfileEmailMatchesAuth(initialSession.user.id, initialSession.user.email);
           const { data: profileData } = await supabase
             .from("profiles")
             .select("*")
@@ -101,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = supabase.auth.onAuthStateChange(async (_, newSession) => {
       setSession(newSession);
       if (newSession?.user.id) {
+        await ensureProfileEmailMatchesAuth(newSession.user.id, newSession.user.email);
         const { data: profileData } = await supabase
           .from("profiles")
           .select("*")
