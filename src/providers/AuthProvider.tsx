@@ -1,12 +1,22 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import type { Profile } from "@/types";
+
+interface TeamOption {
+  id: string;
+  name: string;
+}
 
 interface AuthContextValue {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  /** Aktives Team: `active_team_id` oder Fallback `team_id`. */
+  effectiveTeamId: string | null;
+  /** Teams der aktuellen Person (für Umschalter). */
+  teamSwitcherTeams: TeamOption[];
+  setActiveTeam: (teamId: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -43,6 +53,7 @@ function buildFallbackProfile(session: Session): Profile {
         ? "admin"
         : "employee",
     team_id: null,
+    active_team_id: null,
     has_drivers_license: Boolean(session.user.user_metadata?.has_drivers_license),
     is_active: true,
   };
@@ -51,7 +62,36 @@ function buildFallbackProfile(session: Session): Profile {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [teamSwitcherTeams, setTeamSwitcherTeams] = useState<TeamOption[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const loadTeamSwitcherTeams = useCallback(async (userId: string) => {
+    const { data: mems, error } = await supabase.from("team_memberships").select("team_id").eq("user_id", userId);
+    if (error || !mems?.length) {
+      setTeamSwitcherTeams([]);
+      return;
+    }
+    const ids = Array.from(new Set(mems.map((m: { team_id: string }) => m.team_id)));
+    const { data: teamRows } = await supabase
+      .from("teams")
+      .select("id,name")
+      .in("id", ids)
+      .eq("is_active", true)
+      .order("name");
+    setTeamSwitcherTeams((teamRows ?? []) as TeamOption[]);
+  }, []);
+
+  const setActiveTeam = useCallback(
+    async (teamId: string) => {
+      if (!session?.user.id) return;
+      const { error } = await supabase.from("profiles").update({ active_team_id: teamId }).eq("id", session.user.id);
+      if (error) return;
+      const { data: profileData } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
+      setProfile(profileData ?? null);
+      await loadTeamSwitcherTeams(session.user.id);
+    },
+    [loadTeamSwitcherTeams, session?.user.id],
+  );
 
   async function ensureProfileEmailMatchesAuth(userId: string, authEmail: string | null | undefined) {
     const normalizedAuthEmail = (authEmail ?? "").trim();
@@ -79,10 +119,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (userError || !user) {
             await supabase.auth.signOut({ scope: "local" });
             clearSupabaseAuthStorage();
-            setSession(null);
-            setProfile(null);
-            setLoading(false);
-            return;
+        setSession(null);
+        setProfile(null);
+        setTeamSwitcherTeams([]);
+        setLoading(false);
+        return;
           }
         }
 
@@ -94,15 +135,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .select("*")
             .eq("id", initialSession.user.id)
             .maybeSingle();
-          setProfile(profileData ?? buildFallbackProfile(initialSession));
+          const nextProfile = profileData ?? buildFallbackProfile(initialSession);
+          setProfile(nextProfile);
+          await loadTeamSwitcherTeams(initialSession.user.id);
         } else {
           setProfile(null);
+          setTeamSwitcherTeams([]);
         }
       } catch {
         await supabase.auth.signOut({ scope: "local" });
         clearSupabaseAuthStorage();
         setSession(null);
         setProfile(null);
+        setTeamSwitcherTeams([]);
       } finally {
         setLoading(false);
       }
@@ -119,25 +164,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select("*")
           .eq("id", newSession.user.id)
           .maybeSingle();
-        setProfile(profileData ?? buildFallbackProfile(newSession));
+        const nextProfile = profileData ?? buildFallbackProfile(newSession);
+        setProfile(nextProfile);
+        await loadTeamSwitcherTeams(newSession.user.id);
       } else {
         setProfile(null);
+        setTeamSwitcherTeams([]);
       }
     });
 
     return () => data.subscription.unsubscribe();
   }, []);
 
+  const effectiveTeamId = useMemo(() => {
+    if (!profile) return null;
+    return profile.active_team_id ?? profile.team_id ?? null;
+  }, [profile?.active_team_id, profile?.team_id, profile]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
       profile,
       loading,
+      effectiveTeamId,
+      teamSwitcherTeams,
+      setActiveTeam,
       signOut: async () => {
         await supabase.auth.signOut();
       },
     }),
-    [loading, profile, session],
+    [effectiveTeamId, loading, profile, session, setActiveTeam, teamSwitcherTeams],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

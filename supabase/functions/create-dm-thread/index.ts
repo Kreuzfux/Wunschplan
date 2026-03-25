@@ -70,25 +70,19 @@ serve(async (req) => {
       });
     }
 
-    const { data: callerProfile } = await adminClient
-      .from("profiles")
-      .select("id,team_id")
-      .eq("id", authData.user.id)
-      .maybeSingle();
-    const { data: otherProfile } = await adminClient
-      .from("profiles")
-      .select("id,team_id")
-      .eq("id", otherUserId)
-      .maybeSingle();
-
-    if (!callerProfile?.team_id || !otherProfile?.team_id) {
-      return new Response(JSON.stringify({ error: "Teamzuordnung fehlt." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const { data: callerTeams } = await adminClient.from("team_memberships").select("team_id").eq("user_id", authData.user.id);
+    const { data: otherTeams } = await adminClient.from("team_memberships").select("team_id").eq("user_id", otherUserId);
+    const callerSet = new Set((callerTeams ?? []).map((r: { team_id: string }) => r.team_id));
+    const otherSet = new Set((otherTeams ?? []).map((r: { team_id: string }) => r.team_id));
+    let sharedTeamId: string | null = null;
+    for (const tid of callerSet) {
+      if (otherSet.has(tid)) {
+        sharedTeamId = tid;
+        break;
+      }
     }
-    if (callerProfile.team_id !== otherProfile.team_id) {
-      return new Response(JSON.stringify({ error: "Direktnachrichten sind nur innerhalb des Teams erlaubt." }), {
+    if (!sharedTeamId) {
+      return new Response(JSON.stringify({ error: "Direktnachrichten sind nur mit Personen aus gemeinsamen Teams erlaubt." }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -116,7 +110,7 @@ serve(async (req) => {
     if (!threadId) {
       const { data: newThread, error: createError } = await adminClient
         .from("chat_threads")
-        .insert({ thread_type: "dm", team_id: callerProfile.team_id })
+        .insert({ thread_type: "dm", team_id: sharedTeamId })
         .select("id")
         .single();
       if (createError || !newThread?.id) {

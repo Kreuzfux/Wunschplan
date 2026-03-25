@@ -78,6 +78,8 @@ export function AdminDashboardPage() {
   const [auditActorName, setAuditActorName] = useState<Record<string, string>>({});
   const [auditLoading, setAuditLoading] = useState(false);
   const [shiftLimitsByEmployee, setShiftLimitsByEmployee] = useState<Record<string, number>>({});
+  /** team_ids pro Benutzer (Mehrfach-Zugehörigkeit) */
+  const [membershipsByUserId, setMembershipsByUserId] = useState<Record<string, string[]>>({});
   const [limitDraftByEmployee, setLimitDraftByEmployee] = useState<Record<string, string>>({});
   const [planMonth, setPlanMonth] = useState(now.getMonth() + 1);
   const [planYear, setPlanYear] = useState(now.getFullYear());
@@ -120,6 +122,47 @@ export function AdminDashboardPage() {
       .select("*")
       .order("full_name", { ascending: true });
     setProfiles((data ?? []) as Profile[]);
+    const { data: memRows } = await supabase.from("team_memberships").select("user_id, team_id");
+    const map: Record<string, string[]> = {};
+    for (const row of memRows ?? []) {
+      const uid = String((row as { user_id: string }).user_id);
+      const tid = String((row as { team_id: string }).team_id);
+      if (!map[uid]) map[uid] = [];
+      map[uid].push(tid);
+    }
+    setMembershipsByUserId(map);
+  }
+
+  async function updateUserTeams(userId: string, teamIds: string[]) {
+    const unique = Array.from(new Set(teamIds.filter(Boolean)));
+    const { error: delError } = await supabase.from("team_memberships").delete().eq("user_id", userId);
+    if (delError) {
+      setNotice(delError.message);
+      return;
+    }
+    if (unique.length) {
+      const { error: insError } = await supabase
+        .from("team_memberships")
+        .insert(unique.map((team_id) => ({ user_id: userId, team_id })));
+      if (insError) {
+        setNotice(insError.message);
+        return;
+      }
+    }
+    const { data: prof } = await supabase.from("profiles").select("active_team_id").eq("id", userId).maybeSingle();
+    const active = (prof as { active_team_id?: string | null } | null)?.active_team_id;
+    const nextActive = active && unique.includes(active) ? active : unique[0] ?? null;
+    const { error: upError } = await supabase
+      .from("profiles")
+      .update({ team_id: unique[0] ?? null, active_team_id: nextActive })
+      .eq("id", userId);
+    if (upError) {
+      setNotice(upError.message);
+      return;
+    }
+    setNotice("Teamzuordnung aktualisiert.");
+    await reloadProfiles();
+    if (selectedPlanId) await reloadSubmissions(selectedPlanId);
   }
 
   async function reloadAudit(planId: string | null) {
@@ -623,13 +666,15 @@ export function AdminDashboardPage() {
     if (!error) await reloadProfiles();
   }
 
-  async function updateUserTeam(userId: string, teamId: string | null) {
-    const { error } = await supabase.from("profiles").update({ team_id: teamId }).eq("id", userId);
-    setNotice(error ? error.message : "Teamzuordnung aktualisiert.");
-    if (!error) {
-      await reloadProfiles();
-      if (selectedPlanId) await reloadSubmissions(selectedPlanId);
-    }
+  function teamsForMembershipPicker() {
+    if (isSuperuser && profile?.team_id) return teams.filter((t) => t.id === profile.team_id);
+    return teams;
+  }
+
+  function toggleUserTeam(userId: string, teamId: string, checked: boolean) {
+    const cur = membershipsByUserId[userId] ?? [];
+    const next = checked ? Array.from(new Set([...cur, teamId])) : cur.filter((t) => t !== teamId);
+    void updateUserTeams(userId, next);
   }
 
   async function deleteUser(userId: string) {
@@ -1188,20 +1233,21 @@ export function AdminDashboardPage() {
                               <option value="superuser">Superuser</option>
                             </select>
                           </label>
-                          <label>
-                            Team
-                            <select
-                              className="ml-2 rounded border px-2 py-1"
-                              value={member.team_id ?? ""}
-                              onChange={(e) => void updateUserTeam(member.id, e.target.value || null)}
-                            >
-                              {teams.map((team) => (
-                                <option key={team.id} value={team.id}>
+                          <div className="w-full">
+                            <span className="block text-xs text-slate-600 mb-1">Teams</span>
+                            <div className="flex flex-wrap gap-2 max-w-md">
+                              {teamsForMembershipPicker().map((team) => (
+                                <label key={team.id} className="flex items-center gap-1 rounded border px-2 py-1 text-xs">
+                                  <input
+                                    type="checkbox"
+                                    checked={(membershipsByUserId[member.id] ?? []).includes(team.id)}
+                                    onChange={(e) => toggleUserTeam(member.id, team.id, e.target.checked)}
+                                  />
                                   {team.name}
-                                </option>
+                                </label>
                               ))}
-                            </select>
-                          </label>
+                            </div>
+                          </div>
                           <button
                             className="rounded border border-red-300 px-3 py-1 text-red-700"
                             title="Entfernt den Login und anonymisiert das Profil (historische Daten bleiben ohne Personenbezug)."

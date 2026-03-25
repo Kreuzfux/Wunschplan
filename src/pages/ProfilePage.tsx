@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { TeamSwitcher } from "@/components/TeamSwitcher";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
 
@@ -176,12 +177,15 @@ export function ProfilePage() {
     <main className="mx-auto max-w-2xl p-4 md:p-6">
       <header className="mb-4">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <Link
-            className="rounded border px-3 py-2 text-sm"
-            to={profile && ["admin", "superuser"].includes(profile.role) ? "/admin" : "/dashboard"}
-          >
-            Zurück
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              className="rounded border px-3 py-2 text-sm"
+              to={profile && ["admin", "superuser"].includes(profile.role) ? "/admin" : "/dashboard"}
+            >
+              Zurück
+            </Link>
+            <TeamSwitcher />
+          </div>
         </div>
         <h1 className="text-2xl font-semibold">Profil</h1>
         <p className="text-sm text-slate-600">Hier kannst du Name, E‑Mail und dein Profilbild verwalten.</p>
