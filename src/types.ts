@@ -52,9 +52,10 @@ export interface ShiftWish {
   remarks: string | null;
 }
 
-/** Maximale Schichten pro Kalendermonat (von Admin/Superuser pro Mitarbeiter). */
+/** Maximale Schichten pro Kalendermonat je Mitarbeiter und Team. */
 export interface EmployeeShiftLimit {
   employee_id: string;
+  team_id: string;
   max_shifts_per_month: number;
   updated_at?: string;
 }
