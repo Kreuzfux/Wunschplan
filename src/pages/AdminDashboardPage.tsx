@@ -801,7 +801,7 @@ export function AdminDashboardPage() {
             Als Superuser kannst du Monate nur für dein eigenes Team anlegen und löschen.
           </p>
         ) : null}
-        <div className="mt-3 flex flex-wrap items-end gap-2">
+        <div className="mt-3 flex flex-wrap items-end gap-2 text-slate-700 dark:text-slate-200">
           <label className="text-sm">
             Team
             <select
@@ -938,9 +938,9 @@ export function AdminDashboardPage() {
           ) : auditEntries.length ? (
             <ul className="mt-2 space-y-2 text-sm">
               {auditEntries.map((entry) => (
-                <li key={entry.id} className="rounded-xl border border-slate-200/80 bg-white p-3 text-sm shadow-sm">
+                <li key={entry.id} className="surface-inset">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium">
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
                       {(() => {
                         if (entry.action === "month_upsert") return "Monat angelegt/aktualisiert";
                         if (entry.action === "month_status_set") return "Monatstatus geändert";
@@ -952,7 +952,7 @@ export function AdminDashboardPage() {
                         return entry.action;
                       })()}
                     </span>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
                       {new Date(entry.created_at).toLocaleString("de-DE")}
                     </span>
                   </div>
@@ -963,7 +963,7 @@ export function AdminDashboardPage() {
               ))}
             </ul>
           ) : (
-            <p className="mt-2 text-sm text-slate-600">Keine Einträge.</p>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Keine Einträge.</p>
           )}
         </div>
       </section>
@@ -972,7 +972,7 @@ export function AdminDashboardPage() {
         <div className="card p-5">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Schichtzeiten pro Monat</h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Diese Zeiten sehen Mitarbeiter bei der Wunschplanung.</p>
-          <label className="mt-2 block text-sm">
+          <label className="mt-2 block text-sm text-slate-700 dark:text-slate-200">
             Team für Schichten
             <select
               className="select ml-2"
@@ -990,7 +990,7 @@ export function AdminDashboardPage() {
           </label>
           <div className="card-muted mt-4 p-4">
             <h3 className="font-semibold text-slate-900 dark:text-slate-50">Neue Schicht erstellen</h3>
-            <div className="mt-2 flex flex-wrap items-end gap-2 text-sm">
+            <div className="mt-2 flex flex-wrap items-end gap-2 text-sm text-slate-800 dark:text-slate-200">
               <label>
                 Name
                 <input
@@ -1032,7 +1032,7 @@ export function AdminDashboardPage() {
               </button>
             </div>
           </div>
-          <label className="mt-3 block text-sm">
+          <label className="mt-3 block text-sm text-slate-700 dark:text-slate-200">
             Monat fuer Schichtzeiten
             <select
               className="select ml-2"
@@ -1048,9 +1048,9 @@ export function AdminDashboardPage() {
           </label>
           <ul className="mt-3 space-y-2 text-sm">
             {editableShiftTimes.map((item) => (
-              <li key={item.shiftTypeId} className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
-                <div className="mb-2 font-semibold text-slate-900 dark:text-slate-50">{item.name}</div>
-                <div className="flex flex-wrap items-end gap-2">
+              <li key={item.shiftTypeId} className="surface-inset">
+                <div className="mb-2 font-semibold text-slate-900 dark:text-slate-100">{item.name}</div>
+                <div className="flex flex-wrap items-end gap-2 text-slate-800 dark:text-slate-200">
                   <label>
                     Start
                     <input
@@ -1084,7 +1084,7 @@ export function AdminDashboardPage() {
         <div className="card p-5">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Abgabestatus</h2>
           <p className="text-sm text-slate-600 dark:text-slate-400">Aktualisiert sich automatisch über Supabase Realtime.</p>
-          <label className="mt-2 block text-sm">
+          <label className="mt-2 block text-sm text-slate-700 dark:text-slate-200">
             Team-Filter
             <select
               className="select ml-2"
@@ -1102,7 +1102,7 @@ export function AdminDashboardPage() {
           </label>
           <ul className="mt-2 space-y-2 text-sm">
             {submissions.map((submission) => (
-              <li key={submission.employee_id} className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2">
+              <li key={submission.employee_id} className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-slate-800 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-200">
                 {(submission.full_name ?? submission.employee_id)}: {submission.is_submitted ? "Eingereicht" : "Offen"}
               </li>
             ))}
@@ -1114,12 +1114,12 @@ export function AdminDashboardPage() {
       {isAdmin || isSuperuser ? (
         <section className="card mt-6 p-5 md:p-6">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Mitarbeiter-Limits (Schichten pro Monat)</h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
             Die Dienstplan-Generierung weist pro Kalendermonat höchstens so viele Schichten zu. Leeres Feld = Standard 31.
             {isSuperuser ? " Du pflegst nur Mitarbeiter deines Teams." : null}
           </p>
           {planTeamFilter === "all" ? (
-            <p className="mt-2 text-sm text-amber-800">
+            <p className="mt-2 text-sm text-amber-800 dark:text-amber-200">
               Bitte oben bei Monatsplanung ein Team wählen, um Limits zu bearbeiten.
             </p>
           ) : (
@@ -1130,8 +1130,8 @@ export function AdminDashboardPage() {
                 const inputValue =
                   draft !== undefined ? draft : stored !== undefined ? String(stored) : "";
                 return (
-                  <li key={emp.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/80 p-3">
-                    <span className="min-w-[10rem] font-medium">{emp.full_name}</span>
+                  <li key={emp.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 text-slate-800 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-200">
+                    <span className="min-w-[10rem] font-medium text-slate-900 dark:text-slate-100">{emp.full_name}</span>
                     <label className="text-slate-600 dark:text-slate-400">
                       Max. / Monat
                       <input
@@ -1195,9 +1195,9 @@ export function AdminDashboardPage() {
             </div>
             <ul className="mt-4 space-y-2 text-sm">
               {teams.map((team) => (
-                <li key={team.id} className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-3">
+                <li key={team.id} className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 text-slate-800 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-200">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium text-slate-900 dark:text-slate-50">{team.name}</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">{team.name}</span>
                     <div className="flex flex-wrap items-center gap-2">
                       <button className="btn-secondary btn-sm" type="button" onClick={() => void createTeamChatThread(team.id)}>
                         Teamchat anlegen
@@ -1229,10 +1229,10 @@ export function AdminDashboardPage() {
                   <h3 className="mb-2 font-semibold text-slate-800 dark:text-slate-200">{roleTitle}</h3>
                   <ul className="space-y-2 text-sm">
                     {members.map((member) => (
-                      <li key={member.id} className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
-                        <div className="font-semibold text-slate-900 dark:text-slate-50">{member.full_name}</div>
-                        <div className="text-xs text-slate-500">{member.email}</div>
-                        <div className="mt-2 flex flex-wrap gap-2">
+                      <li key={member.id} className="surface-inset">
+                        <div className="font-semibold text-slate-900 dark:text-slate-100">{member.full_name}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{member.email}</div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-slate-800 dark:text-slate-200">
                           <label>
                             Rolle
                             <select
@@ -1251,7 +1251,7 @@ export function AdminDashboardPage() {
                               {teamsForMembershipPicker().map((team) => (
                                 <label
                                   key={team.id}
-                                  className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/90 px-2 py-1.5 text-xs text-slate-800"
+                                  className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/90 px-2 py-1.5 text-xs text-slate-800 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200"
                                 >
                                   <input
                                     className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
