@@ -6,10 +6,10 @@ export function TeamSwitcher() {
   if (loading || teamSwitcherTeams.length < 2) return null;
 
   return (
-    <label className="flex items-center gap-2 text-sm">
-      <span className="text-slate-600 whitespace-nowrap">Team</span>
+    <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+      <span className="whitespace-nowrap font-medium">Team</span>
       <select
-        className="rounded border px-2 py-1 max-w-[14rem]"
+        className="select max-w-[16rem] text-sm"
         value={effectiveTeamId ?? ""}
         onChange={(e) => void setActiveTeam(e.target.value)}
       >

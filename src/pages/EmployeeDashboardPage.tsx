@@ -3,6 +3,7 @@ import { addDays, endOfMonth, format, startOfMonth } from "date-fns";
 import { de } from "date-fns/locale";
 import { Link } from "react-router-dom";
 import { TeamSwitcher } from "@/components/TeamSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/providers/AuthProvider";
 import { useMonthlyPlans } from "@/hooks/useMonthlyPlan";
 import { supabase } from "@/lib/supabase";
@@ -238,49 +239,60 @@ export function EmployeeDashboardPage() {
     setSavedMessage("Wunschplan erfolgreich eingereicht.");
   }
 
-  if (loading) return <div className="p-6">Monatsdaten werden geladen...</div>;
+  if (loading)
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
+        <div className="spinner" aria-hidden />
+        <p className="text-sm text-slate-600 dark:text-slate-400">Monatsdaten werden geladen…</p>
+      </div>
+    );
 
   return (
-    <main className="mx-auto max-w-6xl p-4 md:p-6">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <main className="page-shell max-w-6xl">
+      <header className="page-header">
         <div>
-          <h1 className="text-2xl font-semibold">Mitarbeiter-Dashboard</h1>
-          <p className="text-sm text-slate-600">Willkommen, {profile?.full_name}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-400">Schichtplan</p>
+          <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Mitarbeiter-Dashboard</h1>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Willkommen, {profile?.full_name}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <ThemeToggle />
           <TeamSwitcher />
-          <Link className="rounded border px-3 py-2 text-sm" to="/chat">
+          <Link className="btn-secondary" to="/chat">
             Chat
           </Link>
-          <Link className="rounded border px-3 py-2 text-sm" to="/profil">
+          <Link className="btn-secondary" to="/profil">
             Profil
           </Link>
           {profile && ["admin", "superuser"].includes(profile.role) ? (
-            <Link className="rounded border px-3 py-2 text-sm" to="/admin">
+            <Link className="btn-secondary" to="/admin">
               Zum Adminbereich
             </Link>
           ) : null}
-          <button className="rounded border px-3 py-2 text-sm" onClick={() => void signOut()}>
+          <button className="btn-secondary" type="button" onClick={() => void signOut()}>
             Ausloggen
           </button>
         </div>
       </header>
 
       {!plan ? (
-        <section className="rounded-xl bg-white p-6 shadow">
+        <section className="card p-6 text-slate-700 dark:text-slate-300">
           Aktuell sind keine Monate für dein Team vorhanden.
         </section>
       ) : (
         <section className="space-y-4">
-          <div className="rounded-xl bg-white p-4 shadow">
-            <h2 className="text-lg font-medium">
-              Monat {format(new Date(plan.year, plan.month - 1, 1), "MMMM yyyy", { locale: de })}
-            </h2>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-              <label className="text-slate-600">
-                Monat auswählen
+          <div className="card p-5 md:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+                Monat {format(new Date(plan.year, plan.month - 1, 1), "MMMM yyyy", { locale: de })}
+              </h2>
+              <span className="badge capitalize">{plan.status}</span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+              <label className="flex flex-wrap items-center gap-2 text-slate-600 dark:text-slate-400">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Monat auswählen</span>
                 <select
-                  className="ml-2 rounded border px-2 py-1"
+                  className="select min-w-[12rem]"
                   value={selectedPlanId ?? ""}
                   onChange={(e) => setSelectedPlanId(e.target.value || null)}
                 >
@@ -291,15 +303,14 @@ export function EmployeeDashboardPage() {
                   ))}
                 </select>
               </label>
-              <span className="text-slate-600">Status: {plan.status}</span>
             </div>
-            <p className="text-sm text-slate-600">Mitarbeiter: {profile?.full_name}</p>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Mitarbeiter: {profile?.full_name}</p>
             {plan.status === "open" ? (
-              <p className="text-sm text-slate-600">Tippe einen oder mehrere Tage an, um Schicht und Bemerkung zu erfassen.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Tippe einen oder mehrere Tage an, um Schicht und Bemerkung zu erfassen.</p>
             ) : plan.status === "published" ? (
-              <p className="text-sm text-slate-600">Der Monat ist veröffentlicht. Unten siehst du deinen Dienstplan.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Der Monat ist veröffentlicht. Unten siehst du deinen Dienstplan.</p>
             ) : (
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
                 Für diesen Monat ist aktuell keine Wunschplanung möglich. Bitte wähle einen offenen Monat oder
                 schaue in einen veröffentlichten Monat.
               </p>
@@ -307,100 +318,123 @@ export function EmployeeDashboardPage() {
           </div>
 
           {plan.status === "open" ? (
-            <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-4 shadow sm:grid-cols-4 md:grid-cols-7">
+            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-soft dark:border-slate-700/80 dark:bg-slate-900/50 dark:shadow-soft-dark sm:grid-cols-4 md:grid-cols-7">
               {days.map((day) => {
                 const key = format(day, "yyyy-MM-dd");
                 const active = selectedDates.includes(key);
                 return (
                   <button
                     key={key}
-                    className={`rounded border p-3 text-left text-sm ${active ? "border-slate-900 bg-slate-100" : "border-slate-200"}`}
+                    type="button"
+                    className={`rounded-xl border p-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${
+                      active
+                        ? "border-brand-500 bg-brand-50 text-brand-950 shadow-sm dark:border-brand-400 dark:bg-brand-950/40 dark:text-brand-100"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-700/80"
+                    }`}
                     onClick={() => toggleDateSelection(key)}
                   >
-                    <div className="font-medium">{format(day, "dd.MM.")}</div>
-                    <div className="text-xs text-slate-500">{format(day, "EEE", { locale: de })}</div>
+                    <div className="font-semibold">{format(day, "dd.MM.")}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{format(day, "EEE", { locale: de })}</div>
                   </button>
                 );
               })}
             </div>
           ) : plan.status === "published" ? (
-            <div className="rounded-xl bg-white p-4 shadow">
-              <h3 className="font-medium">Dein Dienstplan</h3>
+            <div className="card p-5">
+              <h3 className="font-semibold text-slate-900 dark:text-slate-50">Dein Dienstplan</h3>
               {assignmentsLoading ? (
-                <p className="mt-2 text-sm text-slate-600">Dienstplan wird geladen...</p>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Dienstplan wird geladen...</p>
               ) : assignments.length ? (
                 <ul className="mt-3 space-y-2 text-sm">
                   {assignments.map((a) => (
-                    <li key={a.id} className="flex items-center justify-between rounded border p-2">
-                      <span className="font-medium">{format(new Date(a.date), "EEE, dd.MM.", { locale: de })}</span>
-                      <span className="text-slate-700">
-                        {a.start_time} - {a.end_time}
+                    <li
+                      key={a.id}
+                      className="flex items-center justify-between rounded-xl border border-slate-200/90 bg-slate-50/80 px-3 py-2.5 dark:border-slate-600/80 dark:bg-slate-800/60"
+                    >
+                      <span className="font-medium text-slate-700 dark:text-slate-200">{format(new Date(a.date), "EEE, dd.MM.", { locale: de })}</span>
+                      <span className="tabular-nums text-slate-800 dark:text-slate-100">
+                        {a.start_time} – {a.end_time}
                       </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="mt-2 text-sm text-slate-600">Für dich sind noch keine Schichten zugeteilt.</p>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Für dich sind noch keine Schichten zugeteilt.</p>
               )}
-              {errorMessage ? <p className="mt-2 text-sm text-red-700">{errorMessage}</p> : null}
+              {errorMessage ? (
+                <p className="mt-2 text-sm text-red-700 dark:text-red-400">{errorMessage}</p>
+              ) : null}
             </div>
           ) : (
-            <div className="rounded-xl bg-white p-4 shadow">
-              <h3 className="font-medium">Monat ansehen</h3>
-              <p className="mt-1 text-sm text-slate-600">
+            <div className="card p-5">
+              <h3 className="font-semibold text-slate-900 dark:text-slate-50">Monat ansehen</h3>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                 Status „{plan.status}“: In diesem Zustand gibt es hier keine Mitarbeiter-Aktion.
               </p>
             </div>
           )}
 
           {plan.status === "open" && selectedDates.length ? (
-            <div className="rounded-xl bg-white p-4 shadow">
-              <h3 className="font-medium">
+            <div className="card p-5">
+              <h3 className="font-semibold text-slate-900 dark:text-slate-50">
                 Eintrag für {selectedDates.length === 1 ? format(new Date(selectedDates[0]), "PPPP", { locale: de }) : `${selectedDates.length} ausgewählte Tage`}
               </h3>
-              <p className="mt-1 text-sm text-slate-600">Waehle die Schichtzeit, die der Admin freigegeben hat.</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Waehle die Schichtzeit, die der Admin freigegeben hat.</p>
               <div className="mt-3 space-y-2">
                 {shifts.map((shift) => (
-                  <label key={shift.id} className="flex items-center justify-between rounded border p-2 text-sm">
-                    <span className="flex items-center gap-2">
+                  <label
+                    key={shift.id}
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-sm transition-colors hover:border-slate-300 dark:border-slate-600 dark:bg-slate-800/60 dark:hover:border-slate-500"
+                  >
+                    <span className="flex items-center gap-3">
                       <input
+                        className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 dark:border-slate-500"
                         type="checkbox"
                         checked={selectedShiftTypeIds.includes(shift.id)}
                         onChange={() => toggleShiftSelection(shift.id)}
                       />
-                      {shift.name}
+                      <span className="font-medium text-slate-800 dark:text-slate-100">{shift.name}</span>
                     </span>
-                    <span className="text-slate-600">
-                      {shift.start} - {shift.end}
+                    <span className="tabular-nums text-slate-600 dark:text-slate-400">
+                      {shift.start} – {shift.end}
                     </span>
                   </label>
                 ))}
               </div>
               <textarea
                 aria-label="Bemerkungen"
-                className="mt-3 w-full rounded border p-3"
+                className="input mt-3 min-h-[6rem] resize-y"
                 rows={4}
                 placeholder="z. B. nur mit Führerschein"
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
               />
-              <div className="mt-3 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <button
-                  className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
+                  className="btn-primary"
+                  type="button"
                   disabled={!selectedShiftTypeIds.length}
                   onClick={() => void saveWish()}
                 >
                   Wunsch speichern
                 </button>
-                <button className="rounded border px-4 py-2 text-sm" onClick={() => setSelectedDates([])}>
+                <button className="btn-secondary" type="button" onClick={() => setSelectedDates([])}>
                   Auswahl leeren
                 </button>
-                <button className="rounded border px-4 py-2 text-sm" onClick={() => void submitPlan()}>
+                <button className="btn-secondary" type="button" onClick={() => void submitPlan()}>
                   Wunschplan einreichen
                 </button>
               </div>
-              {savedMessage ? <p className="mt-2 text-sm text-green-700">{savedMessage}</p> : null}
-              {errorMessage ? <p className="mt-2 text-sm text-red-700">{errorMessage}</p> : null}
+              {savedMessage ? (
+                <p className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+                  {savedMessage}
+                </p>
+              ) : null}
+              {errorMessage ? (
+                <p className="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/50 dark:text-red-300">
+                  {errorMessage}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </section>

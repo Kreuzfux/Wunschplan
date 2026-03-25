@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/providers/AuthProvider";
 
@@ -117,24 +118,49 @@ export function LoginPage() {
   }, []);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md items-center px-4">
-      <form onSubmit={handleSubmit} className="w-full space-y-4 rounded-xl bg-white p-6 shadow">
-        <h1 className="text-2xl font-semibold">Anmeldung</h1>
+    <main className="auth-shell">
+      <div className="absolute right-4 top-6 z-10 md:right-8">
+        <ThemeToggle />
+      </div>
+      <form onSubmit={handleSubmit} className="auth-card">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-400">Pflegedienst</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Anmeldung</h1>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Melde dich mit deiner E-Mail und deinem Passwort an.</p>
+        </div>
         <label className="block">
-          <span className="mb-1 block text-sm">E-Mail</span>
-          <input className="w-full rounded border px-3 py-2" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">E-Mail</span>
+          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
         </label>
         <label className="block">
-          <span className="mb-1 block text-sm">Passwort</span>
-          <input className="w-full rounded border px-3 py-2" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Passwort</span>
+          <input
+            className="input"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+          />
         </label>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        {resetMessage ? <p className="text-sm text-green-700">{resetMessage}</p> : null}
-        <button className="w-full rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-60" disabled={loading} type="submit">
-          {loading ? "Anmeldung läuft..." : "Einloggen"}
+        {error ? (
+          <p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/50 dark:text-red-300">
+            {error}
+          </p>
+        ) : null}
+        {resetMessage ? (
+          <p className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+            {resetMessage}
+          </p>
+        ) : null}
+        <button className="btn-primary w-full py-2.5" disabled={loading} type="submit">
+          {loading ? "Anmeldung läuft…" : "Einloggen"}
         </button>
-        <p className="text-sm">
-          Noch kein Konto? <Link className="text-blue-700 underline" to="/register">Registrieren</Link>
+        <p className="text-center text-sm text-slate-600 dark:text-slate-400">
+          Noch kein Konto?{" "}
+          <Link className="link" to="/register">
+            Registrieren
+          </Link>
         </p>
       </form>
     </main>

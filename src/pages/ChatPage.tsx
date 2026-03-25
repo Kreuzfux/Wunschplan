@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
 import { TeamSwitcher } from "@/components/TeamSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/providers/AuthProvider";
 import type { ChatAttachment, ChatMessage, ChatThread, Profile } from "@/types";
 
@@ -355,29 +356,41 @@ export function ChatPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold">Chat</h1>
-          <div className="px-3 py-1 rounded border bg-gray-900 text-white text-sm">Teamchat</div>
-          <TeamSwitcher />
-        </div>
-        <Link to={planningTarget} className="px-3 py-2 rounded bg-gray-100 hover:bg-gray-200">
-          {planningLabel}
-        </Link>
-      </div>
-
-      {error ? <div className="mb-3 p-3 rounded bg-red-50 text-red-700 border border-red-200">{error}</div> : null}
-
-      {!activeThreadId ? (
-        <div className="p-6 rounded border bg-gray-50">
-          <div>
-            Teamchat ist noch nicht verfügbar. (Ein Admin muss einmalig den Team‑Thread anlegen.)
+    <div className="page-shell max-w-5xl">
+      <header className="page-header">
+        <div className="flex w-full flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-400">Kommunikation</p>
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Chat</h1>
+                <span className="badge-neutral">Teamchat</span>
+                <TeamSwitcher />
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ThemeToggle />
+            <Link className="btn-secondary shrink-0" to={planningTarget}>
+              {planningLabel}
+            </Link>
           </div>
         </div>
+      </header>
+
+      {error ? (
+        <div className="mb-6 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/50 dark:text-red-300">
+          {error}
+        </div>
+      ) : null}
+
+      {!activeThreadId ? (
+        <div className="card-muted p-8 text-center text-slate-700 dark:text-slate-300">
+          Teamchat ist noch nicht verfügbar. (Ein Admin muss einmalig den Team‑Thread anlegen.)
+        </div>
       ) : (
-        <div className="rounded border">
-          <div className="h-[55vh] overflow-auto p-3 space-y-3 bg-white">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-card dark:border-slate-700/90 dark:bg-slate-900 dark:shadow-card-dark">
+          <div className="h-[55vh] space-y-3 overflow-auto bg-gradient-to-b from-slate-50/90 to-white p-4 dark:from-slate-900 dark:to-slate-950">
             {messages.map((m) => {
               const sender = profilesById.get(m.sender_id);
               const isMine = profile?.id === m.sender_id;
@@ -385,21 +398,29 @@ export function ChatPage() {
               const avatarUrl = avatarUrlsByUserId.get(m.sender_id);
               const initials = getInitials(sender?.full_name);
               return (
-                <div key={m.id} className={`p-3 rounded border ${isMine ? "bg-blue-50 border-blue-100" : "bg-gray-50"}`}>
+                <div
+                  key={m.id}
+                  className={`rounded-xl border p-3 shadow-sm ${
+                    isMine
+                      ? "border-brand-200/80 bg-brand-50/90 dark:border-brand-700/50 dark:bg-brand-950/40"
+                      : "border-slate-200/80 bg-white dark:border-slate-600/80 dark:bg-slate-800/80"
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border bg-white text-xs font-semibold text-gray-600 flex items-center justify-center">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-gradient-to-br from-slate-100 to-brand-50 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:from-slate-800 dark:to-brand-950/40 dark:text-slate-300">
                         {avatarUrl ? <img className="h-full w-full object-cover" src={avatarUrl} alt={`Profilbild ${sender?.full_name ?? ""}`} /> : initials}
                       </div>
-                      <div className="text-sm min-w-0">
-                        <span className="font-semibold">{sender?.full_name ?? "Unbekannt"}</span>{" "}
-                        <span className="text-gray-600">{formatTs(m.created_at)}</span>
+                      <div className="min-w-0 text-sm">
+                        <span className="font-semibold text-slate-900 dark:text-slate-50">{sender?.full_name ?? "Unbekannt"}</span>{" "}
+                        <span className="text-slate-500 dark:text-slate-400">{formatTs(m.created_at)}</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
                       {!m.deleted_at ? (
                         <button
-                          className="text-sm px-2 py-1 rounded bg-white border hover:bg-gray-100 disabled:opacity-50"
+                          className="btn-secondary btn-sm text-red-700 hover:border-red-200 hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:border-red-900/60 dark:hover:bg-red-950/40"
+                          type="button"
                           disabled={busy}
                           onClick={() => softDelete(m)}
                         >
@@ -408,8 +429,12 @@ export function ChatPage() {
                       ) : null}
                     </div>
                   </div>
-                  <div className="mt-2 whitespace-pre-wrap">
-                    {m.deleted_at ? <span className="italic text-gray-500">Nachricht gelöscht</span> : m.body}
+                  <div className="mt-2 whitespace-pre-wrap text-slate-800 dark:text-slate-200">
+                    {m.deleted_at ? (
+                      <span className="italic text-slate-500 dark:text-slate-500">Nachricht gelöscht</span>
+                    ) : (
+                      m.body
+                    )}
                   </div>
                   {msgAttachments.length ? (
                     <div className="mt-2 flex flex-col gap-1">
@@ -418,21 +443,22 @@ export function ChatPage() {
                         const isImage = isImageMimeType(a.mime_type);
                         const fileName = a.storage_path.split("/").slice(-1)[0] ?? "Anhang";
                         return (
-                          <div key={a.id} className="rounded border bg-white p-2">
+                          <div key={a.id} className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-600 dark:bg-slate-900/80">
                             {isImage && signedAttachmentUrl ? (
                               <button
                                 className="block w-fit"
                                 onClick={() => setFullscreenImage({ url: signedAttachmentUrl, name: fileName, attachment: a })}
                               >
                                 <img
-                                  className="max-h-56 rounded border"
+                                  className="max-h-56 rounded border border-slate-200 dark:border-slate-600"
                                   src={signedAttachmentUrl}
                                   alt={fileName}
                                 />
                               </button>
                             ) : null}
                             <button
-                              className="text-left text-sm px-2 py-1 rounded bg-white border hover:bg-gray-100 mt-2"
+                              className="btn-secondary btn-sm mt-2 text-left"
+                              type="button"
                               onClick={() => downloadAttachment(a)}
                             >
                               {isImage ? "Download" : `Datei: ${fileName} (${Math.ceil(a.size_bytes / 1024)} KB)`}
@@ -448,34 +474,34 @@ export function ChatPage() {
             <div ref={bottomRef} />
           </div>
 
-          <div className="p-3 border-t bg-gray-50">
-            <div className="flex flex-col gap-2">
+          <div className="border-t border-slate-200/90 bg-slate-50/95 p-4 dark:border-slate-700 dark:bg-slate-900/90">
+            <div className="flex flex-col gap-3">
               <textarea
-                className="w-full border rounded px-3 py-2"
+                className="input min-h-[5rem] resize-y"
                 placeholder="Nachricht schreiben…"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 rows={3}
               />
-              <div className="flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <input
+                  className="text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-900 hover:file:bg-brand-200 dark:text-slate-400 dark:file:bg-brand-900/50 dark:file:text-brand-100 dark:hover:file:bg-brand-800/60"
                   type="file"
                   accept="*/*"
                   onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-                  className="text-sm"
                 />
-                <button
-                  className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50"
-                  disabled={!canSend || busy}
-                  onClick={send}
-                >
+                <button className="btn-primary md:min-w-[7rem]" type="button" disabled={!canSend || busy} onClick={send}>
                   {busy ? "Sende…" : "Senden"}
                 </button>
               </div>
-              {uploadFile ? <div className="text-sm text-gray-700">Anhang: {uploadFile.name}</div> : null}
+              {uploadFile ? <div className="text-sm text-slate-600 dark:text-slate-400">Anhang: {uploadFile.name}</div> : null}
               {uploadImagePreviewUrl ? (
                 <div className="mt-1">
-                  <img className="max-h-40 rounded border bg-white" src={uploadImagePreviewUrl} alt={`Bildvorschau ${uploadFile?.name ?? ""}`} />
+                  <img
+                    className="max-h-40 rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-800"
+                    src={uploadImagePreviewUrl}
+                    alt={`Bildvorschau ${uploadFile?.name ?? ""}`}
+                  />
                 </div>
               ) : null}
             </div>
@@ -484,16 +510,24 @@ export function ChatPage() {
       )}
 
       {fullscreenImage ? (
-        <div className="fixed inset-0 z-50 bg-black/80 p-4 flex items-center justify-center" onClick={() => setFullscreenImage(null)}>
-          <div className="relative max-w-[95vw] max-h-[95vh] flex flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          onClick={() => setFullscreenImage(null)}
+        >
+          <div className="relative flex max-h-[95vh] max-w-[95vw] flex-col items-center gap-4" onClick={(e) => e.stopPropagation()}>
             <button
-              className="self-end rounded bg-white/90 px-3 py-1 text-sm hover:bg-white"
+              className="btn-secondary self-end bg-white/95 dark:bg-slate-800/95"
+              type="button"
               onClick={() => setFullscreenImage(null)}
             >
               Schließen
             </button>
-            <img className="max-w-[95vw] max-h-[80vh] rounded border border-white/30" src={fullscreenImage.url} alt={fullscreenImage.name} />
-            <button className="rounded bg-white px-4 py-2 text-sm hover:bg-gray-100" onClick={() => downloadAttachment(fullscreenImage.attachment)}>
+            <img
+              className="max-h-[80vh] max-w-[95vw] rounded-xl border border-white/20 shadow-2xl"
+              src={fullscreenImage.url}
+              alt={fullscreenImage.name}
+            />
+            <button className="btn-primary" type="button" onClick={() => downloadAttachment(fullscreenImage.attachment)}>
               Download
             </button>
           </div>

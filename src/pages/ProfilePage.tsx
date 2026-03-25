@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { TeamSwitcher } from "@/components/TeamSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
 
@@ -174,50 +175,58 @@ export function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl p-4 md:p-6">
-      <header className="mb-4">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              className="rounded border px-3 py-2 text-sm"
-              to={profile && ["admin", "superuser"].includes(profile.role) ? "/admin" : "/dashboard"}
-            >
-              Zurück
-            </Link>
-            <TeamSwitcher />
+    <main className="page-shell max-w-2xl">
+      <header className="page-header">
+        <div className="flex w-full flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                className="btn-secondary"
+                to={profile && ["admin", "superuser"].includes(profile.role) ? "/admin" : "/dashboard"}
+              >
+                Zurück
+              </Link>
+              <TeamSwitcher />
+            </div>
+            <h1 className="mt-4 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">Profil</h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Hier kannst du Name, E‑Mail und dein Profilbild verwalten.</p>
           </div>
+          <ThemeToggle />
         </div>
-        <h1 className="text-2xl font-semibold">Profil</h1>
-        <p className="text-sm text-slate-600">Hier kannst du Name, E‑Mail und dein Profilbild verwalten.</p>
       </header>
 
-      {notice ? <p className="mb-3 rounded bg-slate-100 p-3 text-sm">{notice}</p> : null}
+      {notice ? (
+        <p className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-200">
+          {notice}
+        </p>
+      ) : null}
 
-      <section className="rounded-xl bg-white p-4 shadow">
-        <h2 className="font-medium">Stammdaten</h2>
-        <div className="mt-3 space-y-3 text-sm">
+      <section className="card p-5 md:p-6">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Stammdaten</h2>
+        <div className="mt-4 space-y-4 text-sm">
           <label className="block">
-            Name
+            <span className="mb-1.5 block font-medium text-slate-700 dark:text-slate-300">Name</span>
             <input
-              className="mt-1 w-full rounded border px-3 py-2"
+              className="input"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               disabled={busy}
             />
           </label>
           <label className="block">
-            Login‑E‑Mail
+            <span className="mb-1.5 block font-medium text-slate-700 dark:text-slate-300">Login‑E‑Mail</span>
             <input
-              className="mt-1 w-full rounded border px-3 py-2"
+              className="input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={busy}
+              autoComplete="email"
             />
           </label>
           <label className="block">
-            Max. Schichten pro Monat
+            <span className="mb-1.5 block font-medium text-slate-700 dark:text-slate-300">Max. Schichten pro Monat</span>
             <input
-              className="mt-1 w-full rounded border px-3 py-2"
+              className="input max-w-[12rem]"
               type="number"
               min={0}
               max={366}
@@ -225,24 +234,20 @@ export function ProfilePage() {
               onChange={(e) => setMaxShifts(e.target.value)}
               disabled={busy}
             />
-            <span className="mt-1 block text-xs text-slate-600">
+            <span className="mt-1.5 block text-xs text-slate-600 dark:text-slate-400">
               Dieses Limit berücksichtigt die automatische Dienstplan-Generierung.
             </span>
           </label>
-          <button
-            className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
-            disabled={busy}
-            onClick={() => void saveProfile()}
-          >
+          <button className="btn-primary" type="button" disabled={busy} onClick={() => void saveProfile()}>
             Speichern
           </button>
         </div>
       </section>
 
-      <section className="mt-4 rounded-xl bg-white p-4 shadow">
-        <h2 className="font-medium">Profilbild</h2>
-        <div className="mt-3 flex flex-wrap items-center gap-4">
-          <div className="h-20 w-20 overflow-hidden rounded-full border bg-slate-50">
+      <section className="card mt-6 p-5 md:p-6">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Profilbild</h2>
+        <div className="mt-4 flex flex-wrap items-center gap-6">
+          <div className="h-24 w-24 overflow-hidden rounded-full border-2 border-slate-200 bg-gradient-to-br from-slate-100 to-brand-50 shadow-inner dark:border-slate-600 dark:from-slate-800 dark:to-brand-950/50">
             {avatarPreviewUrl ? (
               <img className="h-full w-full object-cover" src={avatarPreviewUrl} alt="Vorschau Profilbild" />
             ) : signedAvatarUrl ? (
@@ -256,11 +261,16 @@ export function ProfilePage() {
               disabled={busy}
               onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
             />
-            <div className="mt-2 flex gap-2">
-              <button className="rounded border px-3 py-1 disabled:opacity-60" disabled={busy || !avatarFile} onClick={() => void uploadAvatar()}>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                className="btn-secondary btn-sm"
+                type="button"
+                disabled={busy || !avatarFile}
+                onClick={() => void uploadAvatar()}
+              >
                 Hochladen
               </button>
-              <span className="text-slate-600">Max. 5 MB (JPG/PNG/WEBP)</span>
+              <span className="text-xs text-slate-600 dark:text-slate-400">Max. 5 MB (JPG/PNG/WEBP)</span>
             </div>
           </div>
         </div>

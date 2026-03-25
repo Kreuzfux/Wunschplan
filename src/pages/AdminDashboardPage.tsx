@@ -15,6 +15,7 @@ import type {
 } from "@/types";
 import { exportSchedulePdf } from "@/utils/pdfExport";
 import { exportScheduleExcel } from "@/utils/excelExport";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/providers/AuthProvider";
 
 interface SubmissionRow {
@@ -764,31 +765,39 @@ export function AdminDashboardPage() {
   }
 
   return (
-    <main className="mx-auto max-w-7xl p-4 md:p-6">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <main className="page-shell">
+      <header className="page-header">
         <div>
-          <h1 className="text-2xl font-semibold">{isSuperuser ? "Team-Admin Bereich" : "Admin-Bereich"}</h1>
-          <p className="text-sm text-slate-600">Hallo, {profile?.full_name}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-400">Verwaltung</p>
+          <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+            {isSuperuser ? "Team-Admin Bereich" : "Admin-Bereich"}
+          </h1>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Hallo, {profile?.full_name}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link className="rounded border px-3 py-2 text-sm" to="/chat">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <ThemeToggle />
+          <Link className="btn-secondary" to="/chat">
             Chat
           </Link>
-          <Link className="rounded border px-3 py-2 text-sm" to="/profil">
+          <Link className="btn-secondary" to="/profil">
             Profil
           </Link>
-          <button className="rounded border px-3 py-2 text-sm" onClick={() => void signOut()}>
+          <button className="btn-secondary" type="button" onClick={() => void signOut()}>
             Ausloggen
           </button>
         </div>
       </header>
 
-      {notice ? <p className="mb-3 rounded bg-slate-100 p-3 text-sm">{notice}</p> : null}
+      {notice ? (
+        <p className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-200">
+          {notice}
+        </p>
+      ) : null}
 
-      <section className="mb-4 rounded-xl bg-white p-4 shadow">
-        <h2 className="font-medium">Monatsplanung</h2>
+      <section className="card mb-6 p-5 md:p-6">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Monatsplanung</h2>
         {!isAdmin ? (
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
             Als Superuser kannst du Monate nur für dein eigenes Team anlegen und löschen.
           </p>
         ) : null}
@@ -796,7 +805,7 @@ export function AdminDashboardPage() {
           <label className="text-sm">
             Team
             <select
-              className="ml-2 rounded border px-2 py-1"
+              className="select ml-2"
               value={planTeamFilter}
               onChange={(e) => setPlanTeamFilter(e.target.value)}
               disabled={isSuperuser}
@@ -812,7 +821,7 @@ export function AdminDashboardPage() {
           <label className="text-sm">
             Monat
             <select
-              className="ml-2 rounded border px-2 py-1"
+              className="select ml-2"
               value={planMonth}
               onChange={(e) => setPlanMonth(Number(e.target.value))}
             >
@@ -826,7 +835,7 @@ export function AdminDashboardPage() {
           <label className="text-sm">
             Jahr
             <select
-              className="ml-2 rounded border px-2 py-1"
+              className="select ml-2"
               value={planYear}
               onChange={(e) => setPlanYear(Number(e.target.value))}
             >
@@ -838,30 +847,32 @@ export function AdminDashboardPage() {
             </select>
           </label>
           <button
-            className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
+            className="btn-primary disabled:opacity-60"
             disabled={isSuperuser && planTeamFilter === "all"}
             onClick={() => void createSelectedMonthPlan()}
           >
             Monat anlegen
           </button>
         </div>
-        <div className="mt-4 overflow-auto">
+        <div className="mt-6 overflow-auto rounded-xl border border-slate-200/80 dark:border-slate-700/80">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b">
-                <th className="p-2 text-left">Monat</th>
-                <th className="p-2 text-left">Status</th>
-                <th className="p-2 text-left">Aktionen</th>
+              <tr className="border-b border-slate-200 bg-slate-50/90 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400">
+                <th className="px-3 py-2.5">Monat</th>
+                <th className="px-3 py-2.5">Status</th>
+                <th className="px-3 py-2.5">Aktionen</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-700 dark:bg-slate-900/50">
               {plans.map((plan) => (
-                <tr key={plan.id} className="border-b">
-                  <td className="p-2">{`${plan.month}.${plan.year}`}</td>
-                  <td className="p-2">{plan.status}</td>
-                  <td className="flex flex-wrap gap-2 p-2">
+                <tr key={plan.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                  <td className="px-3 py-2.5 font-medium text-slate-900 dark:text-slate-50">{`${plan.month}.${plan.year}`}</td>
+                  <td className="px-3 py-2.5">
+                    <span className="badge capitalize">{plan.status}</span>
+                  </td>
+                  <td className="flex flex-wrap gap-1.5 p-2">
                     <button
-                      className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
+                      className="btn-secondary btn-sm"
                       title="Setzt den Monat auf 'open', damit Mitarbeiter ihre Wuensche eintragen koennen."
                       disabled={isSuperuser && planTeamFilter === "all"}
                       onClick={() => void updatePlanStatus(plan.id, "open")}
@@ -869,7 +880,7 @@ export function AdminDashboardPage() {
                       Open
                     </button>
                     <button
-                      className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
+                      className="btn-secondary btn-sm"
                       title="Setzt den Monat auf 'closed' und verhindert weitere Eintraege."
                       disabled={isSuperuser && planTeamFilter === "all"}
                       onClick={() => void updatePlanStatus(plan.id, "closed")}
@@ -877,7 +888,7 @@ export function AdminDashboardPage() {
                       Close
                     </button>
                     <button
-                      className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
+                      className="btn-secondary btn-sm"
                       title="Startet die automatische Dienstplan-Generierung fuer den ausgewaehlten Monat."
                       disabled={isSuperuser && planTeamFilter === "all"}
                       onClick={() => void triggerGeneration(plan.id)}
@@ -885,7 +896,7 @@ export function AdminDashboardPage() {
                       Generieren
                     </button>
                     <button
-                      className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
+                      className="btn-secondary btn-sm"
                       title="Veroeffentlicht den Plan, damit Mitarbeiter den finalen Dienstplan sehen."
                       disabled={isSuperuser && planTeamFilter === "all"}
                       onClick={() => void updatePlanStatus(plan.id, "published")}
@@ -893,21 +904,21 @@ export function AdminDashboardPage() {
                       Publizieren
                     </button>
                     <button
-                      className="rounded border border-red-300 px-2 py-1 text-red-700 disabled:opacity-60"
+                      className="btn-danger btn-sm disabled:opacity-60"
                       disabled={isSuperuser && planTeamFilter === "all"}
                       onClick={() => void deletePlan(plan.id)}
                     >
                       Löschen
                     </button>
                     <button
-                      className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
+                      className="btn-secondary btn-sm"
                       title="Zeigt den Abgabestatus der Mitarbeiter fuer diesen Monat."
                       onClick={() => setSelectedPlanId(plan.id)}
                     >
                       Abgaben
                     </button>
                     <button
-                      className="rounded border px-2 py-1 transition-colors hover:bg-slate-100"
+                      className="btn-secondary btn-sm"
                       title="Exportiert den Dienstplan als PDF und Excel-Datei."
                       onClick={() => void handleExport(plan.id)}
                     >
@@ -920,14 +931,14 @@ export function AdminDashboardPage() {
           </table>
         </div>
 
-        <div className="mt-4 rounded border p-3">
-          <h3 className="font-medium">Änderungshistorie</h3>
+        <div className="card-muted mt-6 p-4">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-50">Änderungshistorie</h3>
           {auditLoading ? (
-            <p className="mt-2 text-sm text-slate-600">Historie wird geladen...</p>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Historie wird geladen...</p>
           ) : auditEntries.length ? (
             <ul className="mt-2 space-y-2 text-sm">
               {auditEntries.map((entry) => (
-                <li key={entry.id} className="rounded border p-2">
+                <li key={entry.id} className="rounded-xl border border-slate-200/80 bg-white p-3 text-sm shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-medium">
                       {(() => {
@@ -945,7 +956,7 @@ export function AdminDashboardPage() {
                       {new Date(entry.created_at).toLocaleString("de-DE")}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-600">
+                  <div className="text-xs text-slate-600 dark:text-slate-400">
                     von {entry.actor_id ? (auditActorName[entry.actor_id] ?? entry.actor_id) : "System"}
                   </div>
                 </li>
@@ -958,13 +969,13 @@ export function AdminDashboardPage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl bg-white p-4 shadow">
-          <h2 className="font-medium">Schichtzeiten pro Monat</h2>
-          <p className="mt-1 text-sm text-slate-600">Diese Zeiten sehen Mitarbeiter bei der Wunschplanung.</p>
+        <div className="card p-5">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Schichtzeiten pro Monat</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Diese Zeiten sehen Mitarbeiter bei der Wunschplanung.</p>
           <label className="mt-2 block text-sm">
             Team für Schichten
             <select
-              className="ml-2 rounded border px-2 py-1"
+              className="select ml-2"
               value={shiftTeamFilter}
               onChange={(e) => setShiftTeamFilter(e.target.value)}
               disabled={isSuperuser}
@@ -977,13 +988,13 @@ export function AdminDashboardPage() {
               ))}
             </select>
           </label>
-          <div className="mt-3 rounded border p-3">
-            <h3 className="font-medium">Neue Schicht erstellen</h3>
+          <div className="card-muted mt-4 p-4">
+            <h3 className="font-semibold text-slate-900 dark:text-slate-50">Neue Schicht erstellen</h3>
             <div className="mt-2 flex flex-wrap items-end gap-2 text-sm">
               <label>
                 Name
                 <input
-                  className="ml-2 rounded border px-2 py-1"
+                  className="input ml-2 min-w-[11rem]"
                   placeholder="z. B. Nachtschicht"
                   value={newShiftName}
                   onChange={(e) => setNewShiftName(e.target.value)}
@@ -992,7 +1003,7 @@ export function AdminDashboardPage() {
               <label>
                 Start
                 <input
-                  className="ml-2 rounded border px-2 py-1"
+                  className="input ml-2 w-[7.5rem]"
                   type="time"
                   value={newShiftStart}
                   onChange={(e) => setNewShiftStart(e.target.value)}
@@ -1001,7 +1012,7 @@ export function AdminDashboardPage() {
               <label>
                 Ende
                 <input
-                  className="ml-2 rounded border px-2 py-1"
+                  className="input ml-2 w-[7.5rem]"
                   type="time"
                   value={newShiftEnd}
                   onChange={(e) => setNewShiftEnd(e.target.value)}
@@ -1010,13 +1021,13 @@ export function AdminDashboardPage() {
               <label>
                 Farbe
                 <input
-                  className="ml-2 h-9 w-10 rounded border p-1 align-middle"
+                  className="ml-2 h-9 w-12 cursor-pointer overflow-hidden rounded-lg border border-slate-200 align-middle"
                   type="color"
                   value={newShiftColor}
                   onChange={(e) => setNewShiftColor(e.target.value)}
                 />
               </label>
-              <button className="rounded border px-3 py-1" onClick={() => void createShiftType()}>
+              <button className="btn-primary btn-sm" type="button" onClick={() => void createShiftType()}>
                 Schicht anlegen
               </button>
             </div>
@@ -1024,7 +1035,7 @@ export function AdminDashboardPage() {
           <label className="mt-3 block text-sm">
             Monat fuer Schichtzeiten
             <select
-              className="ml-2 rounded border px-2 py-1"
+              className="select ml-2"
               value={shiftEditorPlanId ?? ""}
               onChange={(e) => setShiftEditorPlanId(e.target.value || null)}
             >
@@ -1037,13 +1048,13 @@ export function AdminDashboardPage() {
           </label>
           <ul className="mt-3 space-y-2 text-sm">
             {editableShiftTimes.map((item) => (
-              <li key={item.shiftTypeId} className="rounded border p-2">
-                <div className="mb-2 font-medium">{item.name}</div>
+              <li key={item.shiftTypeId} className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
+                <div className="mb-2 font-semibold text-slate-900 dark:text-slate-50">{item.name}</div>
                 <div className="flex flex-wrap items-end gap-2">
                   <label>
                     Start
                     <input
-                      className="ml-2 rounded border px-2 py-1"
+                      className="input ml-2 w-[7.5rem]"
                       type="time"
                       value={item.start}
                       onChange={(e) => updateEditableShiftTime(item.shiftTypeId, "start", e.target.value)}
@@ -1052,16 +1063,16 @@ export function AdminDashboardPage() {
                   <label>
                     Ende
                     <input
-                      className="ml-2 rounded border px-2 py-1"
+                      className="input ml-2 w-[7.5rem]"
                       type="time"
                       value={item.end}
                       onChange={(e) => updateEditableShiftTime(item.shiftTypeId, "end", e.target.value)}
                     />
                   </label>
-                  <button className="rounded border px-3 py-1" onClick={() => void saveShiftTimeOverride(item)}>
+                  <button className="btn-primary btn-sm" type="button" onClick={() => void saveShiftTimeOverride(item)}>
                     Speichern
                   </button>
-                  <button className="rounded border border-red-300 px-3 py-1 text-red-700" onClick={() => void deleteShiftType(item.shiftTypeId, item.name)}>
+                  <button className="btn-danger btn-sm" type="button" onClick={() => void deleteShiftType(item.shiftTypeId, item.name)}>
                     Löschen
                   </button>
                 </div>
@@ -1070,13 +1081,13 @@ export function AdminDashboardPage() {
             {!activeShifts.length ? <li className="text-slate-500">Keine aktiven Schichttypen gefunden.</li> : null}
           </ul>
         </div>
-        <div className="rounded-xl bg-white p-4 shadow">
-          <h2 className="font-medium">Abgabestatus</h2>
-          <p className="text-sm text-slate-600">Aktualisiert sich automatisch über Supabase Realtime.</p>
+        <div className="card p-5">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Abgabestatus</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Aktualisiert sich automatisch über Supabase Realtime.</p>
           <label className="mt-2 block text-sm">
             Team-Filter
             <select
-              className="ml-2 rounded border px-2 py-1"
+              className="select ml-2"
               value={submissionTeamFilter}
               onChange={(e) => setSubmissionTeamFilter(e.target.value)}
               disabled={isSuperuser}
@@ -1091,7 +1102,7 @@ export function AdminDashboardPage() {
           </label>
           <ul className="mt-2 space-y-2 text-sm">
             {submissions.map((submission) => (
-              <li key={submission.employee_id} className="rounded border p-2">
+              <li key={submission.employee_id} className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2">
                 {(submission.full_name ?? submission.employee_id)}: {submission.is_submitted ? "Eingereicht" : "Offen"}
               </li>
             ))}
@@ -1101,8 +1112,8 @@ export function AdminDashboardPage() {
       </section>
 
       {isAdmin || isSuperuser ? (
-        <section className="mt-4 rounded-xl bg-white p-4 shadow">
-          <h2 className="font-medium">Mitarbeiter-Limits (Schichten pro Monat)</h2>
+        <section className="card mt-6 p-5 md:p-6">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Mitarbeiter-Limits (Schichten pro Monat)</h2>
           <p className="mt-1 text-sm text-slate-600">
             Die Dienstplan-Generierung weist pro Kalendermonat höchstens so viele Schichten zu. Leeres Feld = Standard 31.
             {isSuperuser ? " Du pflegst nur Mitarbeiter deines Teams." : null}
@@ -1119,12 +1130,12 @@ export function AdminDashboardPage() {
                 const inputValue =
                   draft !== undefined ? draft : stored !== undefined ? String(stored) : "";
                 return (
-                  <li key={emp.id} className="flex flex-wrap items-center gap-2 rounded border p-2">
+                  <li key={emp.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/80 p-3">
                     <span className="min-w-[10rem] font-medium">{emp.full_name}</span>
-                    <label className="text-slate-600">
+                    <label className="text-slate-600 dark:text-slate-400">
                       Max. / Monat
                       <input
-                        className="ml-2 w-20 rounded border px-2 py-1"
+                        className="input ml-2 w-20 py-1.5"
                         type="number"
                         min={0}
                         max={366}
@@ -1137,7 +1148,7 @@ export function AdminDashboardPage() {
                     </label>
                     <button
                       type="button"
-                      className="rounded border px-3 py-1"
+                      className="btn-primary btn-sm"
                       onClick={() => void saveEmployeeShiftLimit(emp.id)}
                     >
                       Speichern
@@ -1154,13 +1165,13 @@ export function AdminDashboardPage() {
       ) : null}
 
       {isAdmin ? (
-        <section className="mt-4 rounded-xl bg-white p-4 shadow">
-          <h2 className="font-medium">Retention</h2>
-          <p className="mt-1 text-sm text-slate-600">
+        <section className="card mt-6 p-5 md:p-6">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Retention</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
             Bereinigt Chat-Nachrichten und Anhänge älter als 12 Monate.
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button className="rounded border px-3 py-2 text-sm" onClick={() => void purgeChatRetention()}>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button className="btn-secondary" type="button" onClick={() => void purgeChatRetention()}>
               Chat bereinigen (12 Monate)
             </button>
           </div>
@@ -1168,31 +1179,32 @@ export function AdminDashboardPage() {
       ) : null}
 
       {isAdmin ? (
-        <section className="mt-4 grid gap-4 md:grid-cols-2">
-          <div className="rounded-xl bg-white p-4 shadow">
-            <h2 className="font-medium">Teams verwalten</h2>
-            <div className="mt-3 flex gap-2">
+        <section className="mt-6 grid gap-6 md:grid-cols-2">
+          <div className="card p-5 md:p-6">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Teams verwalten</h2>
+            <div className="mt-4 flex gap-2">
               <input
-                className="flex-1 rounded border px-3 py-2 text-sm"
+                className="input flex-1"
                 placeholder="Neues Team (z. B. Nord)"
                 value={newTeamName}
                 onChange={(e) => setNewTeamName(e.target.value)}
               />
-              <button className="rounded border px-3 py-2 text-sm" onClick={() => void createTeam()}>
+              <button className="btn-primary shrink-0" type="button" onClick={() => void createTeam()}>
                 Team anlegen
               </button>
             </div>
-            <ul className="mt-3 space-y-2 text-sm">
+            <ul className="mt-4 space-y-2 text-sm">
               {teams.map((team) => (
-                <li key={team.id} className="rounded border p-2">
+                <li key={team.id} className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span>{team.name}</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-50">{team.name}</span>
                     <div className="flex flex-wrap items-center gap-2">
-                      <button className="rounded border px-3 py-1" onClick={() => void createTeamChatThread(team.id)}>
+                      <button className="btn-secondary btn-sm" type="button" onClick={() => void createTeamChatThread(team.id)}>
                         Teamchat anlegen
                       </button>
                       <button
-                        className="rounded border border-red-300 px-3 py-1 text-red-700"
+                        className="btn-danger btn-sm"
+                        type="button"
                         title="Löscht das Team, wenn keine Daten mehr zugeordnet sind; sonst wird es archiviert."
                         onClick={() => void deleteTeam(team.id)}
                       >
@@ -1206,25 +1218,25 @@ export function AdminDashboardPage() {
             </ul>
           </div>
 
-          <div className="rounded-xl bg-white p-4 shadow">
-            <h2 className="font-medium">Benutzer verwalten</h2>
+          <div className="card p-5 md:p-6">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Benutzer verwalten</h2>
             {(["admin", "superuser", "employee"] as UserRole[]).map((role) => {
               const members = profiles.filter((profileItem) => profileItem.role === role);
               const roleTitle =
                 role === "admin" ? "Admins" : role === "superuser" ? "Superuser" : "Mitarbeiter";
               return (
                 <div key={role} className="mt-3">
-                  <h3 className="mb-2 font-medium">{roleTitle}</h3>
+                  <h3 className="mb-2 font-semibold text-slate-800 dark:text-slate-200">{roleTitle}</h3>
                   <ul className="space-y-2 text-sm">
                     {members.map((member) => (
-                      <li key={member.id} className="rounded border p-2">
-                        <div className="font-medium">{member.full_name}</div>
+                      <li key={member.id} className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm">
+                        <div className="font-semibold text-slate-900 dark:text-slate-50">{member.full_name}</div>
                         <div className="text-xs text-slate-500">{member.email}</div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <label>
                             Rolle
                             <select
-                              className="ml-2 rounded border px-2 py-1"
+                              className="select ml-2"
                               value={member.role}
                               onChange={(e) => void updateUserRole(member.id, e.target.value as UserRole)}
                             >
@@ -1234,11 +1246,15 @@ export function AdminDashboardPage() {
                             </select>
                           </label>
                           <div className="w-full">
-                            <span className="block text-xs text-slate-600 mb-1">Teams</span>
+                            <span className="mb-1 block text-xs text-slate-600 dark:text-slate-400">Teams</span>
                             <div className="flex flex-wrap gap-2 max-w-md">
                               {teamsForMembershipPicker().map((team) => (
-                                <label key={team.id} className="flex items-center gap-1 rounded border px-2 py-1 text-xs">
+                                <label
+                                  key={team.id}
+                                  className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/90 px-2 py-1.5 text-xs text-slate-800"
+                                >
                                   <input
+                                    className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                                     type="checkbox"
                                     checked={(membershipsByUserId[member.id] ?? []).includes(team.id)}
                                     onChange={(e) => toggleUserTeam(member.id, team.id, e.target.checked)}
@@ -1249,7 +1265,8 @@ export function AdminDashboardPage() {
                             </div>
                           </div>
                           <button
-                            className="rounded border border-red-300 px-3 py-1 text-red-700"
+                            className="btn-danger btn-sm"
+                            type="button"
                             title="Entfernt den Login und anonymisiert das Profil (historische Daten bleiben ohne Personenbezug)."
                             onClick={() => void deleteUser(member.id)}
                           >
