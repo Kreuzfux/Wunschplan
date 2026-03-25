@@ -22,11 +22,21 @@ interface DisplayShift {
   end: string;
 }
 
+interface ScheduleAssignmentRow {
+  id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  shift_type_id: string | null;
+}
+
 export function EmployeeDashboardPage() {
   const { profile, signOut } = useAuth();
   const { plan, loading } = useMonthlyPlan();
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [shifts, setShifts] = useState<DisplayShift[]>([]);
+  const [assignments, setAssignments] = useState<ScheduleAssignmentRow[]>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
   const [selectedShiftTypeIds, setSelectedShiftTypeIds] = useState<string[]>([]);
   const [remarks, setRemarks] = useState("");
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
@@ -84,6 +94,32 @@ export function EmployeeDashboardPage() {
         );
       });
   }, [plan, shifts.length]);
+
+  useEffect(() => {
+    async function loadAssignments() {
+      if (!plan || !profile) return;
+      if (plan.status !== "published") {
+        setAssignments([]);
+        return;
+      }
+      setAssignmentsLoading(true);
+      const { data, error } = await supabase
+        .from("schedule_assignments")
+        .select("id,date,start_time,end_time,shift_type_id")
+        .eq("monthly_plan_id", plan.id)
+        .eq("employee_id", profile.id)
+        .order("date", { ascending: true })
+        .order("start_time", { ascending: true });
+      if (error) {
+        setErrorMessage(error.message);
+        setAssignments([]);
+      } else {
+        setAssignments((data ?? []) as ScheduleAssignmentRow[]);
+      }
+      setAssignmentsLoading(false);
+    }
+    void loadAssignments();
+  }, [plan?.id, plan?.status, profile?.id]);
 
   useEffect(() => {
     if (!plan || !profile || selectedDates.length !== 1) return;
@@ -223,27 +259,54 @@ export function EmployeeDashboardPage() {
               Wunschplanung {format(new Date(plan.year, plan.month - 1, 1), "MMMM yyyy", { locale: de })}
             </h2>
             <p className="text-sm text-slate-600">Mitarbeiter: {profile?.full_name}</p>
-            <p className="text-sm text-slate-600">Tippe einen oder mehrere Tage an, um Schicht und Bemerkung zu erfassen.</p>
+            {plan.status === "published" ? (
+              <p className="text-sm text-slate-600">Der Monat ist veröffentlicht. Unten siehst du deinen Dienstplan.</p>
+            ) : (
+              <p className="text-sm text-slate-600">Tippe einen oder mehrere Tage an, um Schicht und Bemerkung zu erfassen.</p>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-4 shadow sm:grid-cols-4 md:grid-cols-7">
-            {days.map((day) => {
-              const key = format(day, "yyyy-MM-dd");
-              const active = selectedDates.includes(key);
-              return (
-                <button
-                  key={key}
-                  className={`rounded border p-3 text-left text-sm ${active ? "border-slate-900 bg-slate-100" : "border-slate-200"}`}
-                  onClick={() => toggleDateSelection(key)}
-                >
-                  <div className="font-medium">{format(day, "dd.MM.")}</div>
-                  <div className="text-xs text-slate-500">{format(day, "EEE", { locale: de })}</div>
-                </button>
-              );
-            })}
-          </div>
+          {plan.status !== "published" ? (
+            <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-4 shadow sm:grid-cols-4 md:grid-cols-7">
+              {days.map((day) => {
+                const key = format(day, "yyyy-MM-dd");
+                const active = selectedDates.includes(key);
+                return (
+                  <button
+                    key={key}
+                    className={`rounded border p-3 text-left text-sm ${active ? "border-slate-900 bg-slate-100" : "border-slate-200"}`}
+                    onClick={() => toggleDateSelection(key)}
+                  >
+                    <div className="font-medium">{format(day, "dd.MM.")}</div>
+                    <div className="text-xs text-slate-500">{format(day, "EEE", { locale: de })}</div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl bg-white p-4 shadow">
+              <h3 className="font-medium">Dein Dienstplan</h3>
+              {assignmentsLoading ? (
+                <p className="mt-2 text-sm text-slate-600">Dienstplan wird geladen...</p>
+              ) : assignments.length ? (
+                <ul className="mt-3 space-y-2 text-sm">
+                  {assignments.map((a) => (
+                    <li key={a.id} className="flex items-center justify-between rounded border p-2">
+                      <span className="font-medium">{format(new Date(a.date), "EEE, dd.MM.", { locale: de })}</span>
+                      <span className="text-slate-700">
+                        {a.start_time} - {a.end_time}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-slate-600">Für dich sind noch keine Schichten zugeteilt.</p>
+              )}
+              {errorMessage ? <p className="mt-2 text-sm text-red-700">{errorMessage}</p> : null}
+            </div>
+          )}
 
-          {selectedDates.length ? (
+          {plan.status !== "published" && selectedDates.length ? (
             <div className="rounded-xl bg-white p-4 shadow">
               <h3 className="font-medium">
                 Eintrag für {selectedDates.length === 1 ? format(new Date(selectedDates[0]), "PPPP", { locale: de }) : `${selectedDates.length} ausgewählte Tage`}
