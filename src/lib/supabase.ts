@@ -5,17 +5,11 @@ const rawSupabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabaseUrl = rawSupabaseUrl?.trim();
 const supabaseAnonKey = rawSupabaseAnonKey?.trim();
 
-// Do not crash the entire SPA on missing build-time vars.
-// This keeps GitHub Pages from showing a white screen and surfaces
-// a clear config issue in the browser console instead.
-const fallbackUrl = "https://qfmffiybblqrejilwsng.supabase.co";
-const fallbackAnonKey = "sb_publishable_exvJ1uH-GjMUL8yrtyqlMw_JpOhoroX";
-
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error(
+  throw new Error(
     "Supabase-Konfiguration fehlt: VITE_SUPABASE_URL und/oder VITE_SUPABASE_ANON_KEY. " +
-      "Prüfe GitHub Actions Secrets und baue neu.",
+      "Bitte GitHub Actions Secrets prüfen und neu deployen.",
   );
 }
 
-export const supabase = createClient(supabaseUrl || fallbackUrl, supabaseAnonKey || fallbackAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
