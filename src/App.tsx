@@ -9,21 +9,39 @@ import { ChatPage } from "@/pages/ChatPage";
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { session, loading } = useAuth();
-  if (loading) return <div className="p-6">Lade Benutzer...</div>;
+  if (loading)
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
+        <div className="spinner" aria-hidden />
+        <p className="text-sm text-slate-600 dark:text-slate-400">Lade Benutzer…</p>
+      </div>
+    );
   if (!session) return <Navigate to="/login" replace />;
   return children;
 }
 
 function AdminRoute({ children }: { children: JSX.Element }) {
   const { profile, loading } = useAuth();
-  if (loading) return <div className="p-6">Lade Profil...</div>;
+  if (loading)
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
+        <div className="spinner" aria-hidden />
+        <p className="text-sm text-slate-600 dark:text-slate-400">Lade Profil…</p>
+      </div>
+    );
   if (!profile || !["admin", "superuser"].includes(profile.role)) return <Navigate to="/dashboard" replace />;
   return children;
 }
 
 function HomeRoute() {
   const { session, profile, loading } = useAuth();
-  if (loading) return <div className="p-6">Lade Benutzer...</div>;
+  if (loading)
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
+        <div className="spinner" aria-hidden />
+        <p className="text-sm text-slate-600 dark:text-slate-400">Lade Benutzer…</p>
+      </div>
+    );
   if (!session) return <Navigate to="/login" replace />;
   if (profile && ["admin", "superuser"].includes(profile.role)) return <Navigate to="/admin" replace />;
   return <Navigate to="/dashboard" replace />;
