@@ -402,18 +402,24 @@ export function ChatPage() {
                   key={m.id}
                   className={`rounded-xl border p-3 shadow-sm ${
                     isMine
-                      ? "border-brand-200/80 bg-brand-50/90 dark:border-brand-700/50 dark:bg-brand-950/40"
-                      : "border-slate-200/80 bg-white dark:border-slate-600/80 dark:bg-slate-800/80"
+                      ? "border-brand-200/80 bg-brand-50 text-slate-900 dark:border-brand-600 dark:bg-brand-900 dark:text-emerald-50"
+                      : "border-slate-200/80 bg-white text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-gradient-to-br from-slate-100 to-brand-50 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:from-slate-800 dark:to-brand-950/40 dark:text-slate-300">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-gradient-to-br from-slate-100 to-brand-50 text-xs font-semibold text-slate-600 dark:border-slate-500 dark:from-slate-700 dark:to-brand-900 dark:text-brand-100">
                         {avatarUrl ? <img className="h-full w-full object-cover" src={avatarUrl} alt={`Profilbild ${sender?.full_name ?? ""}`} /> : initials}
                       </div>
                       <div className="min-w-0 text-sm">
-                        <span className="font-semibold text-slate-900 dark:text-slate-50">{sender?.full_name ?? "Unbekannt"}</span>{" "}
-                        <span className="text-slate-500 dark:text-slate-400">{formatTs(m.created_at)}</span>
+                        <span className="font-semibold text-slate-900 dark:text-inherit">{sender?.full_name ?? "Unbekannt"}</span>{" "}
+                        <span
+                          className={
+                            isMine ? "text-slate-500 dark:text-brand-200/90" : "text-slate-500 dark:text-slate-400"
+                          }
+                        >
+                          {formatTs(m.created_at)}
+                        </span>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -429,11 +435,11 @@ export function ChatPage() {
                       ) : null}
                     </div>
                   </div>
-                  <div className="mt-2 whitespace-pre-wrap text-slate-800 dark:text-slate-200">
+                  <div className="mt-2 whitespace-pre-wrap dark:text-inherit">
                     {m.deleted_at ? (
-                      <span className="italic text-slate-500 dark:text-slate-500">Nachricht gelöscht</span>
+                      <span className="italic text-slate-500 dark:text-slate-400">Nachricht gelöscht</span>
                     ) : (
-                      m.body
+                      <span className="text-slate-800 dark:text-inherit">{m.body}</span>
                     )}
                   </div>
                   {msgAttachments.length ? (
