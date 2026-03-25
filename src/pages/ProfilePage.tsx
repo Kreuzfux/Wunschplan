@@ -23,6 +23,7 @@ export function ProfilePage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [signedAvatarUrl, setSignedAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setFullName(profile?.full_name ?? "");
@@ -54,7 +55,28 @@ export function ProfilePage() {
     return () => URL.revokeObjectURL(url);
   }, [avatarFile]);
 
-  const currentAvatar = useMemo(() => profile?.avatar_url ?? null, [profile?.avatar_url]);
+  const avatarPathOrUrl = useMemo(() => profile?.avatar_url ?? null, [profile?.avatar_url]);
+
+  useEffect(() => {
+    async function loadSignedAvatar() {
+      if (!avatarPathOrUrl) {
+        setSignedAvatarUrl(null);
+        return;
+      }
+      // Backwards compatibility: if old value is a URL, keep using it.
+      if (avatarPathOrUrl.startsWith("http://") || avatarPathOrUrl.startsWith("https://")) {
+        setSignedAvatarUrl(avatarPathOrUrl);
+        return;
+      }
+      const { data, error } = await supabase.storage.from("avatars").createSignedUrl(avatarPathOrUrl, 60 * 60);
+      if (error) {
+        setSignedAvatarUrl(null);
+        return;
+      }
+      setSignedAvatarUrl(data?.signedUrl ?? null);
+    }
+    void loadSignedAvatar();
+  }, [avatarPathOrUrl]);
 
   async function saveProfile() {
     if (!profile) return;
@@ -135,12 +157,9 @@ export function ProfilePage() {
       return;
     }
 
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    const publicUrl = data?.publicUrl ?? null;
-
     const { error: updateError } = await supabase
       .from("profiles")
-      .update({ avatar_url: publicUrl, avatar_updated_at: new Date().toISOString() })
+      .update({ avatar_url: path, avatar_updated_at: new Date().toISOString() })
       .eq("id", profile.id);
     if (updateError) {
       setNotice(updateError.message);
@@ -222,8 +241,8 @@ export function ProfilePage() {
           <div className="h-20 w-20 overflow-hidden rounded-full border bg-slate-50">
             {avatarPreviewUrl ? (
               <img className="h-full w-full object-cover" src={avatarPreviewUrl} alt="Vorschau Profilbild" />
-            ) : currentAvatar ? (
-              <img className="h-full w-full object-cover" src={currentAvatar} alt="Profilbild" />
+            ) : signedAvatarUrl ? (
+              <img className="h-full w-full object-cover" src={signedAvatarUrl} alt="Profilbild" />
             ) : null}
           </div>
           <div className="text-sm">
