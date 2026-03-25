@@ -1,14 +1,18 @@
 ## Betrieb & Aufbewahrung (Checkliste)
 
 ### Backup / Wiederherstellung
-- **Datenbank-Backups**: Supabase Projekt so konfigurieren, dass regelmäßige Backups aktiv sind.
-- **Wiederherstellung testen**: mindestens quartalsweise einmal Restore-Probe (Staging/Local) durchführen.
-- **Exports**: Monatlich nach Publizieren zusätzlich PDF/Excel als externes Backup ablegen.
+- **Datenbank-Backups**: täglich (oder häufiger, je nach Betrieb) aktivieren.
+- **Wiederherstellung testen**: mindestens **quartalsweise** eine Restore-Probe (Staging/Local) durchführen und protokollieren.
+- **Exports**: nach **jedem** Publizieren PDF/Excel als externes Backup ablegen.
+- **Verantwortlich**: Admin (Pflegedienstleitung) benennt einen Stellvertreter für Backup/Restore.
 
 ### Aufbewahrung (Retention)
-- **Dienstpläne (`schedule_assignments`)**: mindestens 2–3 Jahre aufbewahren (betriebliche Nachweise).
+- **Nachweisziel**: **3 Jahre** Aufbewahrung (orientiert an **§195 BGB** – allgemeine Verjährungsfrist).
+- **Dienstpläne (`schedule_assignments`)**: **mindestens 3 Jahre** aufbewahren (betriebliche Nachweise).
+- **Monate (`monthly_plans`)**: **mindestens 3 Jahre** aufbewahren (Status/Team/Monat).
+- **Audit-Log (`audit_log`)**: **mindestens 3 Jahre** aufbewahren (Wer hat was wann getan).
 - **Wünsche (`shift_wishes`)**: nur so lange wie nötig (z. B. 6–12 Monate) – danach löschen/anonymisieren.
-- **Audit-Log (`audit_log`)**: z. B. 12–36 Monate (abhängig von interner Policy).
+- **Verantwortlich**: Admin definiert den Stichtag (z. B. Ende Kalenderjahr + 3 Jahre) und dokumentiert die Löschroutine.
 
 ### Zugriffs- & Rollenmodell
 - **Admin**: global, kann Teams/Benutzer verwalten und veröffentlichen.

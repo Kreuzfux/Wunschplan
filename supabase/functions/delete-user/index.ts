@@ -1,18 +1,44 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const allowedOrigins = new Set([
+  "https://kreuzfux.github.io",
+  "http://localhost:5173",
+  "http://localhost:4173",
+]);
+
+function buildCorsHeaders(origin: string | null) {
+  const allowOrigin = origin && allowedOrigins.has(origin) ? origin : "https://kreuzfux.github.io";
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    Vary: "Origin",
+  };
+}
 
 function deletedEmailFor(id: string) {
   // RFC 2606 reserved domain, never deliverable.
   return `deleted+${id}@example.invalid`;
 }
 
+async function enforceRateLimit(adminClient: any, actorId: string) {
+  const windowMinutes = 2;
+  const maxActions = 5;
+  const since = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
+  const { count } = await adminClient
+    .from("audit_log")
+    .select("*", { count: "exact", head: true })
+    .eq("actor_id", actorId)
+    .in("action", ["user_delete", "team_delete", "team_archive"])
+    .gte("created_at", since);
+  if ((count ?? 0) >= maxActions) {
+    throw new Error("Zu viele kritische Aktionen in kurzer Zeit. Bitte später erneut versuchen.");
+  }
+}
+
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -67,6 +93,9 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Abuse guard (best-effort).
+    await enforceRateLimit(adminClient, authData.user.id);
     if (!targetProfile) {
       return new Response(JSON.stringify({ error: "Zielbenutzer nicht gefunden." }), {
         status: 404,
@@ -124,6 +153,15 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    await adminClient.from("audit_log").insert({
+      actor_id: authData.user.id,
+      team_id: callerProfile.team_id ?? null,
+      action: "user_delete",
+      entity: "profile",
+      entity_id: targetUserId,
+      payload: { target_user_id: targetUserId },
+    });
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

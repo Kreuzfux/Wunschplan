@@ -1,11 +1,21 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const allowedOrigins = new Set([
+  "https://kreuzfux.github.io",
+  "http://localhost:5173",
+  "http://localhost:4173",
+]);
+
+function buildCorsHeaders(origin: string | null) {
+  const allowOrigin = origin && allowedOrigins.has(origin) ? origin : "https://kreuzfux.github.io";
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    Vary: "Origin",
+  };
+}
 const ADMIN_EMAIL = "nitzschkepa@yahoo.de";
 const ADMIN_USER_ID = "b6210438-2ad6-4387-b4d6-99ba8f87cd76";
 
@@ -28,6 +38,7 @@ function dedupeWishesByEmployee(wishes: WishRow[]): WishRow[] {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

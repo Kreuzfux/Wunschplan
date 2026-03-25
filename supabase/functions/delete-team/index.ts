@@ -1,13 +1,24 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const allowedOrigins = new Set([
+  "https://kreuzfux.github.io",
+  "http://localhost:5173",
+  "http://localhost:4173",
+]);
+
+function buildCorsHeaders(origin: string | null) {
+  const allowOrigin = origin && allowedOrigins.has(origin) ? origin : "https://kreuzfux.github.io";
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    Vary: "Origin",
+  };
+}
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -47,6 +58,21 @@ serve(async (req) => {
       });
     }
 
+    // Abuse guard: avoid rapid repeated destructive operations.
+    const since = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const { count } = await adminClient
+      .from("audit_log")
+      .select("*", { count: "exact", head: true })
+      .eq("actor_id", authData.user.id)
+      .in("action", ["team_delete", "team_archive", "user_delete"])
+      .gte("created_at", since);
+    if ((count ?? 0) >= 5) {
+      return new Response(JSON.stringify({ error: "Zu viele kritische Aktionen in kurzer Zeit. Bitte später erneut versuchen." }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json().catch(() => ({}));
     const teamId = String((body as any).team_id ?? "");
     if (!teamId) {
@@ -71,6 +97,14 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      await adminClient.from("audit_log").insert({
+        actor_id: authData.user.id,
+        team_id: teamId,
+        action: "team_archive",
+        entity: "team",
+        entity_id: teamId,
+        payload: { reason: "dependencies" },
+      });
       return new Response(
         JSON.stringify({
           success: true,
@@ -88,6 +122,15 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    await adminClient.from("audit_log").insert({
+      actor_id: authData.user.id,
+      team_id: teamId,
+      action: "team_delete",
+      entity: "team",
+      entity_id: teamId,
+      payload: {},
+    });
 
     return new Response(JSON.stringify({ success: true, action: "deleted" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
