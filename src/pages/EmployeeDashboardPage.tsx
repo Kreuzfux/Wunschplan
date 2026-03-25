@@ -328,13 +328,21 @@ export function EmployeeDashboardPage() {
                     type="button"
                     className={`rounded-xl border p-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${
                       active
-                        ? "border-brand-500 bg-brand-50 text-brand-950 shadow-sm dark:border-brand-400 dark:bg-brand-950/40 dark:text-brand-100"
-                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-700/80"
+                        ? "border-brand-500 bg-brand-50 text-brand-950 shadow-sm dark:border-brand-500 dark:bg-brand-900 dark:text-white dark:shadow-md"
+                        : "border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-700"
                     }`}
                     onClick={() => toggleDateSelection(key)}
                   >
-                    <div className="font-semibold">{format(day, "dd.MM.")}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{format(day, "EEE", { locale: de })}</div>
+                    <div className="font-semibold text-inherit">{format(day, "dd.MM.")}</div>
+                    <div
+                      className={
+                        active
+                          ? "text-xs text-slate-600 dark:text-brand-200"
+                          : "text-xs text-slate-500 dark:text-slate-400"
+                      }
+                    >
+                      {format(day, "EEE", { locale: de })}
+                    </div>
                   </button>
                 );
               })}
