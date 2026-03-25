@@ -101,6 +101,21 @@ export function LoginPage() {
     }, 450);
   }
 
+  useEffect(() => {
+    // Emergency-only: hidden shortcut to reset local data.
+    // Ctrl+Shift+Alt+R on Windows/Linux, Cmd+Shift+Alt+R on macOS.
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toLowerCase().includes("mac");
+      const mainModifierOk = isMac ? e.metaKey : e.ctrlKey;
+      if (!mainModifierOk || !e.shiftKey || !e.altKey) return;
+      if (e.key.toLowerCase() !== "r") return;
+      e.preventDefault();
+      void handleResetLocalData();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md items-center px-4">
       <form onSubmit={handleSubmit} className="w-full space-y-4 rounded-xl bg-white p-6 shadow">
@@ -117,9 +132,6 @@ export function LoginPage() {
         {resetMessage ? <p className="text-sm text-green-700">{resetMessage}</p> : null}
         <button className="w-full rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-60" disabled={loading} type="submit">
           {loading ? "Anmeldung läuft..." : "Einloggen"}
-        </button>
-        <button className="w-full rounded border px-4 py-2 text-sm" onClick={() => void handleResetLocalData()} type="button">
-          Lokale Daten zurücksetzen
         </button>
         <p className="text-sm">
           Noch kein Konto? <Link className="text-blue-700 underline" to="/register">Registrieren</Link>
