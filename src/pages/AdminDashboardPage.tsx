@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Link } from "react-router-dom";
@@ -86,9 +86,16 @@ export function AdminDashboardPage() {
   const [planYear, setPlanYear] = useState(now.getFullYear());
   const yearOptions = Array.from({ length: 6 }, (_, i) => now.getFullYear() + i);
   const activeShifts = shifts.filter((shift) => shift.is_active !== false);
-  const limitsTeamEmployees = profiles
-    .filter((p) => p.role === "employee" && (planTeamFilter === "all" ? false : p.team_id === planTeamFilter))
-    .sort((a, b) => a.full_name.localeCompare(b.full_name, "de"));
+  const limitsTeamEmployees = useMemo(() => {
+    if (planTeamFilter === "all") return [];
+    return profiles
+      .filter((p) => {
+        if (p.role !== "employee") return false;
+        const memberTeams = membershipsByUserId[p.id] ?? [];
+        return p.team_id === planTeamFilter || memberTeams.includes(planTeamFilter);
+      })
+      .sort((a, b) => a.full_name.localeCompare(b.full_name, "de"));
+  }, [profiles, planTeamFilter, membershipsByUserId]);
 
   async function reloadPlans() {
     let query = supabase
@@ -233,6 +240,7 @@ export function AdminDashboardPage() {
     const { data, error } = await supabase
       .from("employee_shift_limits")
       .select("employee_id,max_shifts_per_month")
+      .eq("team_id", planTeamFilter)
       .in("employee_id", empIds);
     if (error) {
       setNotice(error.message);
@@ -257,8 +265,8 @@ export function AdminDashboardPage() {
       return;
     }
     const { error } = await supabase.from("employee_shift_limits").upsert(
-      { employee_id: employeeId, max_shifts_per_month: n },
-      { onConflict: "employee_id" },
+      { employee_id: employeeId, team_id: planTeamFilter, max_shifts_per_month: n },
+      { onConflict: "employee_id,team_id" },
     );
     if (error) {
       setNotice(error.message);
@@ -276,7 +284,7 @@ export function AdminDashboardPage() {
       "employee_shift_limit",
       employeeId,
       planTeamFilter === "all" ? null : planTeamFilter,
-      { max_shifts_per_month: n },
+      { max_shifts_per_month: n, team_id: planTeamFilter },
     );
   }
 
@@ -351,7 +359,7 @@ export function AdminDashboardPage() {
   useEffect(() => {
     setLimitDraftByEmployee({});
     void reloadEmployeeShiftLimits();
-  }, [planTeamFilter, profiles]);
+  }, [planTeamFilter, profiles, membershipsByUserId]);
 
   useEffect(() => {
     void reloadShifts();

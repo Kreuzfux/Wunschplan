@@ -122,6 +122,7 @@ serve(async (req) => {
       const { data: limitRows } = await adminClient
         .from("employee_shift_limits")
         .select("employee_id,max_shifts_per_month")
+        .eq("team_id", plan.team_id)
         .in("employee_id", wishEmployeeIds);
       for (const row of limitRows ?? []) {
         limitMap.set((row as { employee_id: string }).employee_id, (row as { max_shifts_per_month: number }).max_shifts_per_month);

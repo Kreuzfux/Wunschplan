@@ -17,15 +17,20 @@ function getFileExt(file: File) {
 }
 
 export function ProfilePage() {
-  const { profile } = useAuth();
+  const { profile, teamSwitcherTeams } = useAuth();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [maxShifts, setMaxShifts] = useState<string>("31");
+  /** team_id -> Eingabe (nur Mitarbeiter) */
+  const [limitsByTeamId, setLimitsByTeamId] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [signedAvatarUrl, setSignedAvatarUrl] = useState<string | null>(null);
+
+  const isEmployee = profile?.role === "employee";
+
+  const teamsForLimits = useMemo(() => teamSwitcherTeams, [teamSwitcherTeams]);
 
   useEffect(() => {
     setFullName(profile?.full_name ?? "");
@@ -33,19 +38,25 @@ export function ProfilePage() {
   }, [profile?.email, profile?.full_name]);
 
   useEffect(() => {
-    async function loadLimit() {
-      if (!profile?.id) return;
+    async function loadLimits() {
+      if (!profile?.id || !isEmployee) {
+        setLimitsByTeamId({});
+        return;
+      }
       const { data, error } = await supabase
         .from("employee_shift_limits")
-        .select("max_shifts_per_month")
-        .eq("employee_id", profile.id)
-        .maybeSingle();
+        .select("team_id,max_shifts_per_month")
+        .eq("employee_id", profile.id);
       if (error) return;
-      const value = (data as any)?.max_shifts_per_month;
-      if (typeof value === "number") setMaxShifts(String(value));
+      const next: Record<string, string> = {};
+      for (const row of data ?? []) {
+        const r = row as { team_id: string; max_shifts_per_month: number };
+        next[r.team_id] = String(r.max_shifts_per_month);
+      }
+      setLimitsByTeamId(next);
     }
-    void loadLimit();
-  }, [profile?.id]);
+    void loadLimits();
+  }, [profile?.id, isEmployee]);
 
   useEffect(() => {
     if (!avatarFile) {
@@ -65,7 +76,6 @@ export function ProfilePage() {
         setSignedAvatarUrl(null);
         return;
       }
-      // Backwards compatibility: if old value is a URL, keep using it.
       if (avatarPathOrUrl.startsWith("http://") || avatarPathOrUrl.startsWith("https://")) {
         setSignedAvatarUrl(avatarPathOrUrl);
         return;
@@ -79,6 +89,32 @@ export function ProfilePage() {
     }
     void loadSignedAvatar();
   }, [avatarPathOrUrl]);
+
+  async function saveShiftLimitsForTeams(): Promise<boolean> {
+    if (!profile?.id || !isEmployee || !teamsForLimits.length) return true;
+
+    const rows: { employee_id: string; team_id: string; max_shifts_per_month: number }[] = [];
+    for (const t of teamsForLimits) {
+      const raw = (limitsByTeamId[t.id] ?? "31").trim();
+      const n = raw === "" ? 31 : Number.parseInt(raw, 10);
+      if (!Number.isFinite(n) || n < 0 || n > 366) {
+        setNotice(`Max. Schichten für „${t.name}“: bitte Zahl zwischen 0 und 366 (leer = 31).`);
+        return false;
+      }
+      rows.push({ employee_id: profile.id, team_id: t.id, max_shifts_per_month: n });
+    }
+
+    if (!rows.length) return true;
+
+    const { error: limitError } = await supabase
+      .from("employee_shift_limits")
+      .upsert(rows, { onConflict: "employee_id,team_id" });
+    if (limitError) {
+      setNotice(limitError.message);
+      return false;
+    }
+    return true;
+  }
 
   async function saveProfile() {
     if (!profile) return;
@@ -95,7 +131,6 @@ export function ProfilePage() {
     setBusy(true);
     setNotice(null);
 
-    // 1) Update display name in public profile.
     const { error: profileError } = await supabase.from("profiles").update({ full_name: nextName }).eq("id", profile.id);
     if (profileError) {
       setNotice(profileError.message);
@@ -103,23 +138,14 @@ export function ProfilePage() {
       return;
     }
 
-    // 1b) Update max shifts (employee-controlled limit for generation).
-    const parsedLimit = Number.parseInt(maxShifts.trim() || "31", 10);
-    if (!Number.isFinite(parsedLimit) || parsedLimit < 0 || parsedLimit > 366) {
-      setNotice("Max. Schichten/Monat: bitte Zahl zwischen 0 und 366 eingeben.");
-      setBusy(false);
-      return;
-    }
-    const { error: limitError } = await supabase
-      .from("employee_shift_limits")
-      .upsert({ employee_id: profile.id, max_shifts_per_month: parsedLimit }, { onConflict: "employee_id" });
-    if (limitError) {
-      setNotice(limitError.message);
-      setBusy(false);
-      return;
+    if (isEmployee) {
+      const limitsOk = await saveShiftLimitsForTeams();
+      if (!limitsOk) {
+        setBusy(false);
+        return;
+      }
     }
 
-    // 2) Update auth login email (requires confirmation, depending on project settings).
     if (nextEmail !== (profile.email ?? "").toLowerCase()) {
       const { error: authError } = await supabase.auth.updateUser({ email: nextEmail });
       if (authError) {
@@ -129,7 +155,7 @@ export function ProfilePage() {
       }
       setNotice("E‑Mail-Änderung angestoßen. Bitte Bestätigungs‑E‑Mail prüfen.");
     } else {
-      setNotice("Profil gespeichert.");
+      setNotice(isEmployee ? "Profil und Schichtlimits gespeichert." : "Profil gespeichert.");
     }
 
     setBusy(false);
@@ -223,26 +249,47 @@ export function ProfilePage() {
               autoComplete="email"
             />
           </label>
-          <label className="block">
-            <span className="mb-1.5 block font-medium text-slate-700 dark:text-slate-300">Max. Schichten pro Monat</span>
-            <input
-              className="input max-w-[12rem]"
-              type="number"
-              min={0}
-              max={366}
-              value={maxShifts}
-              onChange={(e) => setMaxShifts(e.target.value)}
-              disabled={busy}
-            />
-            <span className="mt-1.5 block text-xs text-slate-600 dark:text-slate-400">
-              Dieses Limit berücksichtigt die automatische Dienstplan-Generierung.
-            </span>
-          </label>
           <button className="btn-primary" type="button" disabled={busy} onClick={() => void saveProfile()}>
             Speichern
           </button>
         </div>
       </section>
+
+      {isEmployee ? (
+        <section className="card mt-6 p-5 md:p-6">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Schichtlimits pro Team</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            Die automatische Dienstplan-Generierung berücksichtigt pro Kalendermonat höchstens so viele Schichten – je Team,
+            in dem du eingeteilt bist.
+          </p>
+          {!teamsForLimits.length ? (
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">Du bist aktuell keinem Team zugeordnet.</p>
+          ) : (
+            <div className="mt-4 space-y-4 text-sm">
+              {teamsForLimits.map((t) => (
+                <label key={t.id} className="block">
+                  <span className="mb-1.5 block font-medium text-slate-700 dark:text-slate-300">Max. Schichten / Monat – {t.name}</span>
+                  <input
+                    className="input max-w-[12rem]"
+                    type="number"
+                    min={0}
+                    max={366}
+                    value={limitsByTeamId[t.id] ?? "31"}
+                    onChange={(e) =>
+                      setLimitsByTeamId((prev) => ({
+                        ...prev,
+                        [t.id]: e.target.value,
+                      }))
+                    }
+                    disabled={busy}
+                  />
+                </label>
+              ))}
+              <p className="text-xs text-slate-600 dark:text-slate-400">Wird mit „Speichern“ unter Stammdaten übernommen.</p>
+            </div>
+          )}
+        </section>
+      ) : null}
 
       <section className="card mt-6 p-5 md:p-6">
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Profilbild</h2>
@@ -278,4 +325,3 @@ export function ProfilePage() {
     </main>
   );
 }
-
