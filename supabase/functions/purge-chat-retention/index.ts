@@ -22,10 +22,17 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const adminClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    if (!supabaseUrl || !serviceRoleKey || !anonKey) {
+      return new Response(JSON.stringify({ error: "Server-Konfiguration unvollständig (SUPABASE_URL/KEYS)." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     const token = req.headers.get("Authorization")?.replace("Bearer ", "");
     if (!token) {
@@ -35,17 +42,20 @@ serve(async (req) => {
       });
     }
 
-    const { data: authData } = await adminClient.auth.getUser(token);
-    if (!authData.user) {
-      return new Response(JSON.stringify({ error: "Nicht autorisiert." }), {
+    const callerClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: authData, error: authError } = await callerClient.auth.getUser();
+    if (authError || !authData.user) {
+      return new Response(JSON.stringify({ error: "Nicht autorisiert.", details: authError?.message ?? null }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const { data: caller } = await adminClient.from("profiles").select("id,role").eq("id", authData.user.id).maybeSingle();
-    if (caller?.role !== "admin") {
-      return new Response(JSON.stringify({ error: "Nur Admins dürfen die Bereinigung ausführen." }), {
+    if (caller?.role !== "admin" && caller?.role !== "superuser") {
+      return new Response(JSON.stringify({ error: "Nur Admins und Superuser dürfen die Bereinigung ausführen." }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

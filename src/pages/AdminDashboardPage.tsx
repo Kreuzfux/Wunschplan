@@ -668,8 +668,17 @@ export function AdminDashboardPage() {
     const { error } = await supabase.functions.invoke("purge-chat-retention", { body: {} });
     if (error) {
       const status = (error as any)?.context?.status;
-      const body = (error as any)?.context?.body;
-      setNotice(status ? `Fehler ${status}: ${error.message}${body ? ` (${String(body)})` : ""}` : error.message);
+      let bodyMessage = "";
+      try {
+        const res = (error as any)?.context as Response | undefined;
+        if (res) {
+          const payload = await res.clone().json().catch(async () => ({ error: await res.clone().text() }));
+          bodyMessage = (payload as any)?.error ? String((payload as any).error) : "";
+        }
+      } catch {
+        bodyMessage = "";
+      }
+      setNotice(status ? `Fehler ${status}: ${error.message}${bodyMessage ? ` (${bodyMessage})` : ""}` : error.message);
       return;
     }
     setNotice("Chat Bereinigung gestartet (12 Monate Retention).");

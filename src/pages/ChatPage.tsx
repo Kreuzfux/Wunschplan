@@ -6,13 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/providers/AuthProvider";
 import type { ChatAttachment, ChatMessage, ChatThread, Profile } from "@/types";
 
-type Tab = "team" | "dm";
-
-interface DmUserOption {
-  id: string;
-  full_name: string;
-}
-
 function formatTs(ts: string) {
   return format(new Date(ts), "dd.MM.yyyy HH:mm", { locale: de });
 }
@@ -46,13 +39,8 @@ function getInitials(name: string | null | undefined) {
 
 export function ChatPage() {
   const { profile } = useAuth();
-  const [tab, setTab] = useState<Tab>("team");
 
   const [teamThreadId, setTeamThreadId] = useState<string | null>(null);
-  const [dmThreadId, setDmThreadId] = useState<string | null>(null);
-
-  const [dmUsers, setDmUsers] = useState<DmUserOption[]>([]);
-  const [selectedDmUserId, setSelectedDmUserId] = useState<string>("");
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [attachments, setAttachments] = useState<Map<string, ChatAttachment[]>>(new Map());
@@ -67,16 +55,15 @@ export function ChatPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const activeThreadId = tab === "team" ? teamThreadId : dmThreadId;
+  const activeThreadId = teamThreadId;
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const planningTarget = profile && ["admin", "superuser"].includes(profile.role) ? "/admin" : "/dashboard";
   const planningLabel = profile && ["admin", "superuser"].includes(profile.role) ? "Zur Admin-Planung" : "Zur Planung";
 
   const canSend = useMemo(() => {
     if (!activeThreadId) return false;
-    if (tab === "dm" && !dmThreadId) return false;
     return Boolean(newMessage.trim() || uploadFile);
-  }, [activeThreadId, dmThreadId, newMessage, uploadFile, tab]);
+  }, [activeThreadId, newMessage, uploadFile]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -96,21 +83,6 @@ export function ChatPage() {
     }
     loadTeamThread();
   }, [profile?.team_id]);
-
-  useEffect(() => {
-    async function loadDmUsers() {
-      if (!profile?.team_id) return;
-      const { data } = await supabase
-        .from("profiles")
-        .select("id,full_name")
-        .eq("team_id", profile.team_id)
-        .eq("is_active", true)
-        .order("full_name");
-      const options = ((data ?? []) as DmUserOption[]).filter((u) => u.id !== profile.id);
-      setDmUsers(options);
-    }
-    loadDmUsers();
-  }, [profile?.team_id, profile?.id]);
 
   useEffect(() => {
     setMessages([]);
@@ -301,15 +273,6 @@ export function ChatPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [fullscreenImage]);
 
-  async function ensureDmThread(otherUserId: string) {
-    const { data, error: fnError } = await supabase.functions.invoke("create-dm-thread", {
-      body: { other_user_id: otherUserId },
-    });
-    if (fnError) throw fnError;
-    if (!data?.thread_id) throw new Error("DM Thread konnte nicht erstellt werden.");
-    setDmThreadId(String(data.thread_id));
-  }
-
   async function send() {
     if (!profile || !activeThreadId) return;
     setBusy(true);
@@ -395,61 +358,20 @@ export function ChatPage() {
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">Chat</h1>
-          <div className="flex gap-2">
-            <button
-              className={`px-3 py-1 rounded border ${tab === "team" ? "bg-gray-900 text-white" : "bg-white"}`}
-              onClick={() => setTab("team")}
-            >
-              Teamchat
-            </button>
-            <button
-              className={`px-3 py-1 rounded border ${tab === "dm" ? "bg-gray-900 text-white" : "bg-white"}`}
-              onClick={() => setTab("dm")}
-            >
-              Direkt
-            </button>
-          </div>
+          <div className="px-3 py-1 rounded border bg-gray-900 text-white text-sm">Teamchat</div>
         </div>
         <Link to={planningTarget} className="px-3 py-2 rounded bg-gray-100 hover:bg-gray-200">
           {planningLabel}
         </Link>
       </div>
 
-      {tab === "dm" ? (
-        <div className="mb-4 flex flex-col md:flex-row gap-2 md:items-center">
-          <select
-            className="border rounded px-3 py-2"
-            value={selectedDmUserId}
-            onChange={(e) => setSelectedDmUserId(e.target.value)}
-          >
-            <option value="">Person auswählen…</option>
-            {dmUsers.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.full_name}
-              </option>
-            ))}
-          </select>
-          <button
-            className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
-            disabled={!selectedDmUserId || busy}
-            onClick={() => ensureDmThread(selectedDmUserId)}
-          >
-            DM öffnen
-          </button>
-        </div>
-      ) : null}
-
       {error ? <div className="mb-3 p-3 rounded bg-red-50 text-red-700 border border-red-200">{error}</div> : null}
 
       {!activeThreadId ? (
         <div className="p-6 rounded border bg-gray-50">
-          {tab === "team" ? (
-            <div>
-              Teamchat ist noch nicht verfügbar. (Ein Admin muss einmalig den Team‑Thread anlegen.)
-            </div>
-          ) : (
-            <div>Bitte eine Person auswählen und „DM öffnen“ klicken.</div>
-          )}
+          <div>
+            Teamchat ist noch nicht verfügbar. (Ein Admin muss einmalig den Team‑Thread anlegen.)
+          </div>
         </div>
       ) : (
         <div className="rounded border">
