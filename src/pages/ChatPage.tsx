@@ -17,6 +17,33 @@ function formatTs(ts: string) {
   return format(new Date(ts), "dd.MM.yyyy HH:mm", { locale: de });
 }
 
+function isImageMimeType(mimeType: string | null | undefined) {
+  return Boolean(mimeType?.toLowerCase().startsWith("image/"));
+}
+
+function inferMimeTypeFromFile(file: File) {
+  if (file.type) return file.type;
+  const lowerName = file.name.toLowerCase();
+  if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) return "image/jpeg";
+  if (lowerName.endsWith(".png")) return "image/png";
+  if (lowerName.endsWith(".webp")) return "image/webp";
+  if (lowerName.endsWith(".gif")) return "image/gif";
+  if (lowerName.endsWith(".bmp")) return "image/bmp";
+  if (lowerName.endsWith(".svg")) return "image/svg+xml";
+  return "application/octet-stream";
+}
+
+function getInitials(name: string | null | undefined) {
+  if (!name) return "?";
+  const parts = name
+    .split(" ")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return `${parts[0].slice(0, 1)}${parts[parts.length - 1].slice(0, 1)}`.toUpperCase();
+}
+
 export function ChatPage() {
   const { profile } = useAuth();
   const [tab, setTab] = useState<Tab>("team");
@@ -30,14 +57,19 @@ export function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [attachments, setAttachments] = useState<Map<string, ChatAttachment[]>>(new Map());
   const [profilesById, setProfilesById] = useState<Map<string, Profile>>(new Map());
+  const [avatarUrlsByUserId, setAvatarUrlsByUserId] = useState<Map<string, string>>(new Map());
+  const [attachmentUrlsByPath, setAttachmentUrlsByPath] = useState<Map<string, string>>(new Map());
 
   const [newMessage, setNewMessage] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadImagePreviewUrl, setUploadImagePreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const activeThreadId = tab === "team" ? teamThreadId : dmThreadId;
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const planningTarget = profile && ["admin", "superuser"].includes(profile.role) ? "/admin" : "/dashboard";
+  const planningLabel = profile && ["admin", "superuser"].includes(profile.role) ? "Zur Admin-Planung" : "Zur Planung";
 
   const canSend = useMemo(() => {
     if (!activeThreadId) return false;
@@ -83,6 +115,8 @@ export function ChatPage() {
     setMessages([]);
     setAttachments(new Map());
     setProfilesById(new Map());
+    setAvatarUrlsByUserId(new Map());
+    setAttachmentUrlsByPath(new Map());
     setError(null);
   }, [activeThreadId]);
 
@@ -134,6 +168,58 @@ export function ChatPage() {
   }, [activeThreadId]);
 
   useEffect(() => {
+    let isCancelled = false;
+    async function loadAvatarUrls() {
+      const entries = Array.from(profilesById.entries());
+      if (!entries.length) {
+        if (!isCancelled) setAvatarUrlsByUserId(new Map());
+        return;
+      }
+      const resolved = new Map<string, string>();
+      await Promise.all(
+        entries.map(async ([userId, p]) => {
+          const avatarPathOrUrl = p.avatar_url;
+          if (!avatarPathOrUrl) return;
+          if (avatarPathOrUrl.startsWith("http://") || avatarPathOrUrl.startsWith("https://")) {
+            resolved.set(userId, avatarPathOrUrl);
+            return;
+          }
+          const { data } = await supabase.storage.from("avatars").createSignedUrl(avatarPathOrUrl, 60 * 60);
+          if (data?.signedUrl) resolved.set(userId, data.signedUrl);
+        }),
+      );
+      if (!isCancelled) setAvatarUrlsByUserId(resolved);
+    }
+    void loadAvatarUrls();
+    return () => {
+      isCancelled = true;
+    };
+  }, [profilesById]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadAttachmentUrls() {
+      const allAttachments = Array.from(attachments.values()).flat();
+      if (!allAttachments.length) {
+        if (!isCancelled) setAttachmentUrlsByPath(new Map());
+        return;
+      }
+      const resolved = new Map<string, string>();
+      await Promise.all(
+        allAttachments.map(async (att) => {
+          const { data } = await supabase.storage.from("chat-attachments").createSignedUrl(att.storage_path, 60 * 60);
+          if (data?.signedUrl) resolved.set(att.storage_path, data.signedUrl);
+        }),
+      );
+      if (!isCancelled) setAttachmentUrlsByPath(resolved);
+    }
+    void loadAttachmentUrls();
+    return () => {
+      isCancelled = true;
+    };
+  }, [attachments]);
+
+  useEffect(() => {
     if (!activeThreadId) return;
     const channel = supabase
       .channel(`chat:${activeThreadId}`)
@@ -141,13 +227,44 @@ export function ChatPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_messages", filter: `thread_id=eq.${activeThreadId}` },
         async () => {
-          const { data } = await supabase
+          const { data, error: msgError } = await supabase
             .from("chat_messages")
             .select("id,thread_id,sender_id,body,created_at,deleted_at,deleted_by")
             .eq("thread_id", activeThreadId)
             .order("created_at", { ascending: true })
             .limit(300);
-          setMessages((data ?? []) as ChatMessage[]);
+          if (msgError) {
+            setError(msgError.message);
+            return;
+          }
+          const msgs = (data ?? []) as ChatMessage[];
+          setMessages(msgs);
+
+          const senderIds = Array.from(new Set(msgs.map((m) => m.sender_id)));
+          if (senderIds.length) {
+            const { data: pData } = await supabase
+              .from("profiles")
+              .select("id,email,full_name,role,team_id,has_drivers_license,is_active,avatar_url")
+              .in("id", senderIds);
+            const map = new Map<string, Profile>();
+            for (const p of (pData ?? []) as Profile[]) map.set(p.id, p);
+            setProfilesById(map);
+          }
+
+          const msgIds = msgs.map((m) => m.id);
+          if (msgIds.length) {
+            const { data: aData } = await supabase
+              .from("chat_attachments")
+              .select("id,message_id,storage_path,mime_type,size_bytes,created_at")
+              .in("message_id", msgIds);
+            const aMap = new Map<string, ChatAttachment[]>();
+            for (const a of (aData ?? []) as ChatAttachment[]) {
+              const arr = aMap.get(a.message_id) ?? [];
+              arr.push(a);
+              aMap.set(a.message_id, arr);
+            }
+            setAttachments(aMap);
+          }
         },
       )
       .subscribe();
@@ -156,6 +273,21 @@ export function ChatPage() {
       supabase.removeChannel(channel);
     };
   }, [activeThreadId]);
+
+  useEffect(() => {
+    if (!uploadFile) {
+      setUploadImagePreviewUrl(null);
+      return;
+    }
+    const mimeType = inferMimeTypeFromFile(uploadFile);
+    if (!isImageMimeType(mimeType)) {
+      setUploadImagePreviewUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(uploadFile);
+    setUploadImagePreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [uploadFile]);
 
   async function ensureDmThread(otherUserId: string) {
     const { data, error: fnError } = await supabase.functions.invoke("create-dm-thread", {
@@ -184,12 +316,13 @@ export function ChatPage() {
       if (uploadFile) {
         const maxSizeBytes = 10 * 1024 * 1024;
         if (uploadFile.size > maxSizeBytes) throw new Error("Datei zu groß (max. 10 MB).");
+        const mimeType = inferMimeTypeFromFile(uploadFile);
 
         const safeName = uploadFile.name.replace(/[^\w.\-]+/g, "_");
         const storagePath = `${activeThreadId}/${msg.id}/${Date.now()}_${safeName}`;
 
         const { error: upError } = await supabase.storage.from("chat-attachments").upload(storagePath, uploadFile, {
-          contentType: uploadFile.type || "application/octet-stream",
+          contentType: mimeType,
           upsert: false,
         });
         if (upError) throw upError;
@@ -197,7 +330,7 @@ export function ChatPage() {
         const { error: aError } = await supabase.from("chat_attachments").insert({
           message_id: msg.id,
           storage_path: storagePath,
-          mime_type: uploadFile.type || "application/octet-stream",
+          mime_type: mimeType,
           size_bytes: uploadFile.size,
         });
         if (aError) throw aError;
@@ -265,8 +398,8 @@ export function ChatPage() {
             </button>
           </div>
         </div>
-        <Link to="/dashboard" className="px-3 py-2 rounded bg-gray-100 hover:bg-gray-200">
-          Zur Planung
+        <Link to={planningTarget} className="px-3 py-2 rounded bg-gray-100 hover:bg-gray-200">
+          {planningLabel}
         </Link>
       </div>
 
@@ -313,12 +446,19 @@ export function ChatPage() {
               const sender = profilesById.get(m.sender_id);
               const isMine = profile?.id === m.sender_id;
               const msgAttachments = attachments.get(m.id) ?? [];
+              const avatarUrl = avatarUrlsByUserId.get(m.sender_id);
+              const initials = getInitials(sender?.full_name);
               return (
                 <div key={m.id} className={`p-3 rounded border ${isMine ? "bg-blue-50 border-blue-100" : "bg-gray-50"}`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm">
-                      <span className="font-semibold">{sender?.full_name ?? "Unbekannt"}</span>{" "}
-                      <span className="text-gray-600">{formatTs(m.created_at)}</span>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border bg-white text-xs font-semibold text-gray-600 flex items-center justify-center">
+                        {avatarUrl ? <img className="h-full w-full object-cover" src={avatarUrl} alt={`Profilbild ${sender?.full_name ?? ""}`} /> : initials}
+                      </div>
+                      <div className="text-sm min-w-0">
+                        <span className="font-semibold">{sender?.full_name ?? "Unbekannt"}</span>{" "}
+                        <span className="text-gray-600">{formatTs(m.created_at)}</span>
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       {!m.deleted_at ? (
@@ -337,15 +477,29 @@ export function ChatPage() {
                   </div>
                   {msgAttachments.length ? (
                     <div className="mt-2 flex flex-col gap-1">
-                      {msgAttachments.map((a) => (
-                        <button
-                          key={a.id}
-                          className="text-left text-sm px-2 py-1 rounded bg-white border hover:bg-gray-100"
-                          onClick={() => downloadAttachment(a)}
-                        >
-                          Datei: {a.storage_path.split("/").slice(-1)[0]} ({Math.ceil(a.size_bytes / 1024)} KB)
-                        </button>
-                      ))}
+                      {msgAttachments.map((a) => {
+                        const signedAttachmentUrl = attachmentUrlsByPath.get(a.storage_path);
+                        const isImage = isImageMimeType(a.mime_type);
+                        return (
+                          <div key={a.id} className="rounded border bg-white p-2">
+                            {isImage && signedAttachmentUrl ? (
+                              <button className="block w-fit" onClick={() => downloadAttachment(a)}>
+                                <img
+                                  className="max-h-56 rounded border"
+                                  src={signedAttachmentUrl}
+                                  alt={a.storage_path.split("/").slice(-1)[0] ?? "Bildanhang"}
+                                />
+                              </button>
+                            ) : null}
+                            <button
+                              className="text-left text-sm px-2 py-1 rounded bg-white border hover:bg-gray-100 mt-2"
+                              onClick={() => downloadAttachment(a)}
+                            >
+                              Datei: {a.storage_path.split("/").slice(-1)[0]} ({Math.ceil(a.size_bytes / 1024)} KB)
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : null}
                 </div>
@@ -366,6 +520,7 @@ export function ChatPage() {
               <div className="flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
                 <input
                   type="file"
+                  accept="*/*"
                   onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                   className="text-sm"
                 />
@@ -378,6 +533,11 @@ export function ChatPage() {
                 </button>
               </div>
               {uploadFile ? <div className="text-sm text-gray-700">Anhang: {uploadFile.name}</div> : null}
+              {uploadImagePreviewUrl ? (
+                <div className="mt-1">
+                  <img className="max-h-40 rounded border bg-white" src={uploadImagePreviewUrl} alt={`Bildvorschau ${uploadFile?.name ?? ""}`} />
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
