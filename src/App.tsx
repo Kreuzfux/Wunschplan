@@ -5,6 +5,7 @@ import { RegisterPage } from "@/pages/RegisterPage";
 import { EmployeeDashboardPage } from "@/pages/EmployeeDashboardPage";
 import { AdminDashboardPage } from "@/pages/AdminDashboardPage";
 import { ProfilePage } from "@/pages/ProfilePage";
+import { ChatPage } from "@/pages/ChatPage";
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { session, loading } = useAuth();
@@ -58,6 +59,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
             </ProtectedRoute>
           }
         />

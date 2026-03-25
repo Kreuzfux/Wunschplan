@@ -76,3 +76,37 @@ export interface AuditLogEntry {
   entity_id: string | null;
   payload: Record<string, unknown>;
 }
+
+export type ChatThreadType = "team" | "dm";
+
+export interface ChatThread {
+  id: string;
+  team_id: string | null;
+  thread_type: ChatThreadType;
+  created_at: string;
+}
+
+export interface ChatThreadMember {
+  thread_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  thread_id: string;
+  sender_id: string;
+  body: string | null;
+  created_at: string;
+  deleted_at: string | null;
+  deleted_by: string | null;
+}
+
+export interface ChatAttachment {
+  id: string;
+  message_id: string;
+  storage_path: string;
+  mime_type: string;
+  size_bytes: number;
+  created_at: string;
+}

@@ -603,6 +603,20 @@ export function AdminDashboardPage() {
     }
   }
 
+  async function createTeamChatThread(teamId: string) {
+    const { error } = await supabase.from("chat_threads").insert({ team_id: teamId, thread_type: "team" });
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes("duplicate") || msg.includes("unique")) {
+        setNotice("Teamchat-Thread existiert bereits.");
+        return;
+      }
+      setNotice(error.message);
+      return;
+    }
+    setNotice("Teamchat-Thread wurde angelegt.");
+  }
+
   async function updateUserRole(userId: string, role: UserRole) {
     const { error } = await supabase.from("profiles").update({ role }).eq("id", userId);
     setNotice(error ? error.message : "Rolle aktualisiert.");
@@ -650,6 +664,17 @@ export function AdminDashboardPage() {
     await reloadProfiles();
   }
 
+  async function purgeChatRetention() {
+    const { error } = await supabase.functions.invoke("purge-chat-retention", { body: {} });
+    if (error) {
+      const status = (error as any)?.context?.status;
+      const body = (error as any)?.context?.body;
+      setNotice(status ? `Fehler ${status}: ${error.message}${body ? ` (${String(body)})` : ""}` : error.message);
+      return;
+    }
+    setNotice("Chat Bereinigung gestartet (12 Monate Retention).");
+  }
+
   async function deletePlan(planId: string) {
     if (!(await ensurePlanPrivileges())) {
       return;
@@ -692,6 +717,9 @@ export function AdminDashboardPage() {
           <p className="text-sm text-slate-600">Hallo, {profile?.full_name}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link className="rounded border px-3 py-2 text-sm" to="/chat">
+            Chat
+          </Link>
           <Link className="rounded border px-3 py-2 text-sm" to="/profil">
             Profil
           </Link>
@@ -1072,6 +1100,20 @@ export function AdminDashboardPage() {
       ) : null}
 
       {isAdmin ? (
+        <section className="mt-4 rounded-xl bg-white p-4 shadow">
+          <h2 className="font-medium">Retention</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Bereinigt Chat-Nachrichten und Anhänge älter als 12 Monate.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button className="rounded border px-3 py-2 text-sm" onClick={() => void purgeChatRetention()}>
+              Chat bereinigen (12 Monate)
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {isAdmin ? (
         <section className="mt-4 grid gap-4 md:grid-cols-2">
           <div className="rounded-xl bg-white p-4 shadow">
             <h2 className="font-medium">Teams verwalten</h2>
@@ -1091,13 +1133,18 @@ export function AdminDashboardPage() {
                 <li key={team.id} className="rounded border p-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span>{team.name}</span>
-                    <button
-                      className="rounded border border-red-300 px-3 py-1 text-red-700"
-                      title="Löscht das Team, wenn keine Daten mehr zugeordnet sind; sonst wird es archiviert."
-                      onClick={() => void deleteTeam(team.id)}
-                    >
-                      Löschen
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button className="rounded border px-3 py-1" onClick={() => void createTeamChatThread(team.id)}>
+                        Teamchat anlegen
+                      </button>
+                      <button
+                        className="rounded border border-red-300 px-3 py-1 text-red-700"
+                        title="Löscht das Team, wenn keine Daten mehr zugeordnet sind; sonst wird es archiviert."
+                        onClick={() => void deleteTeam(team.id)}
+                      >
+                        Löschen
+                      </button>
+                    </div>
                   </div>
                 </li>
               ))}
