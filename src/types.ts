@@ -64,3 +64,14 @@ export interface GenerateScheduleResponse {
   skipped_by_limit: number;
   error?: string;
 }
+
+export interface AuditLogEntry {
+  id: string;
+  created_at: string;
+  actor_id: string | null;
+  team_id: string | null;
+  action: string;
+  entity: string;
+  entity_id: string | null;
+  payload: Record<string, unknown>;
+}

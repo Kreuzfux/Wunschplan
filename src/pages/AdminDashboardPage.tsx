@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
 import type {
+  AuditLogEntry,
   EmployeeShiftLimit,
   GenerateScheduleResponse,
   MonthlyPlan,
@@ -72,6 +73,9 @@ export function AdminDashboardPage() {
   const [shiftEditorPlanId, setShiftEditorPlanId] = useState<string | null>(null);
   const [editableShiftTimes, setEditableShiftTimes] = useState<EditableShiftTime[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [auditEntries, setAuditEntries] = useState<AuditLogEntry[]>([]);
+  const [auditActorName, setAuditActorName] = useState<Record<string, string>>({});
+  const [auditLoading, setAuditLoading] = useState(false);
   const [shiftLimitsByEmployee, setShiftLimitsByEmployee] = useState<Record<string, number>>({});
   const [limitDraftByEmployee, setLimitDraftByEmployee] = useState<Record<string, string>>({});
   const [planMonth, setPlanMonth] = useState(now.getMonth() + 1);
@@ -115,6 +119,58 @@ export function AdminDashboardPage() {
       .select("*")
       .order("full_name", { ascending: true });
     setProfiles((data ?? []) as Profile[]);
+  }
+
+  async function reloadAudit(planId: string | null) {
+    if (!planId) {
+      setAuditEntries([]);
+      setAuditActorName({});
+      return;
+    }
+    setAuditLoading(true);
+    const { data, error } = await supabase
+      .from("audit_log")
+      .select("*")
+      .eq("entity", "monthly_plan")
+      .eq("entity_id", planId)
+      .order("created_at", { ascending: false })
+      .limit(80);
+    if (error) {
+      setAuditEntries([]);
+      setAuditActorName({});
+      setAuditLoading(false);
+      return;
+    }
+    const rows = (data ?? []) as AuditLogEntry[];
+    setAuditEntries(rows);
+    const actorIds = Array.from(new Set(rows.map((r) => r.actor_id).filter(Boolean))) as string[];
+    if (actorIds.length) {
+      const { data: actorRows } = await supabase.from("profiles").select("id,full_name").in("id", actorIds);
+      const map: Record<string, string> = {};
+      for (const r of actorRows ?? []) {
+        map[(r as any).id] = (r as any).full_name;
+      }
+      setAuditActorName(map);
+    } else {
+      setAuditActorName({});
+    }
+    setAuditLoading(false);
+  }
+
+  async function logAudit(action: string, entity: string, entityId: string | null, teamId: string | null, payload?: Record<string, unknown>) {
+    // Best effort: audit should never block the main flow.
+    try {
+      await supabase.from("audit_log").insert({
+        actor_id: profile?.id ?? null,
+        team_id: teamId,
+        action,
+        entity,
+        entity_id: entityId,
+        payload: payload ?? {},
+      });
+    } catch {
+      // ignore
+    }
   }
 
   async function reloadEmployeeShiftLimits() {
@@ -170,6 +226,13 @@ export function AdminDashboardPage() {
       return next;
     });
     setNotice(`Limit gespeichert: ${n} Schichten pro Monat.`);
+    await logAudit(
+      "limit_set",
+      "employee_shift_limit",
+      employeeId,
+      planTeamFilter === "all" ? null : planTeamFilter,
+      { max_shifts_per_month: n },
+    );
   }
 
   async function reloadSubmissions(planId: string) {
@@ -275,6 +338,10 @@ export function AdminDashboardPage() {
   }, [selectedPlanId, submissionTeamFilter]);
 
   useEffect(() => {
+    void reloadAudit(selectedPlanId);
+  }, [selectedPlanId]);
+
+  useEffect(() => {
     if (!shiftEditorPlanId || !shifts.length) {
       setEditableShiftTimes([]);
       return;
@@ -338,7 +405,10 @@ export function AdminDashboardPage() {
       },
     );
     setNotice(error ? error.message : `Monatsplan ${planMonth}.${planYear} erstellt/aktualisiert.`);
-    if (!error) await reloadPlans();
+    if (!error) {
+      await logAudit("month_upsert", "monthly_plan", null, targetTeamId, { year: planYear, month: planMonth });
+      await reloadPlans();
+    }
   }
 
   async function updatePlanStatus(id: string, status: MonthlyPlan["status"]) {
@@ -347,7 +417,12 @@ export function AdminDashboardPage() {
     }
     const { error } = await supabase.from("monthly_plans").update({ status }).eq("id", id);
     setNotice(error ? error.message : `Status auf '${status}' gesetzt.`);
-    if (!error) await reloadPlans();
+    if (!error) {
+      const planRow = plans.find((p) => p.id === id);
+      await logAudit("month_status_set", "monthly_plan", id, planRow?.team_id ?? null, { status });
+      await reloadPlans();
+      await reloadAudit(id);
+    }
   }
 
   async function triggerGeneration(planId: string) {
@@ -358,11 +433,13 @@ export function AdminDashboardPage() {
       body: { monthly_plan_id: planId },
     });
     if (error) {
+      const status = (error as any)?.context?.status;
+      const body = (error as any)?.context?.body;
       const normalized = error.message.toLowerCase();
       if (normalized.includes("failed to send a request")) {
         setNotice("Edge Function nicht erreichbar. Bitte Deployment und CORS der Funktion 'generate-schedule' pruefen.");
       } else {
-        setNotice(error.message);
+        setNotice(status ? `Fehler ${status}: ${error.message}${body ? ` (${String(body)})` : ""}` : error.message);
       }
       return;
     }
@@ -378,7 +455,14 @@ export function AdminDashboardPage() {
           : null,
       ].filter(Boolean);
       setNotice(parts.join(" "));
+      const planRow = plans.find((p) => p.id === planId);
+      await logAudit("schedule_generate", "monthly_plan", planId, planRow?.team_id ?? null, {
+        created: result.created,
+        unfilled_slots: result.unfilled_slots,
+        skipped_by_limit: result.skipped_by_limit,
+      });
       await reloadPlans();
+      await reloadAudit(planId);
       return;
     }
     if (result && "error" in result && result.error) {
@@ -390,6 +474,9 @@ export function AdminDashboardPage() {
   }
 
   async function handleExport(planId: string) {
+    const planRow = plans.find((p) => p.id === planId);
+    const teamName =
+      planRow?.team_id ? teams.find((t) => t.id === planRow.team_id)?.name ?? planRow.team_id : "Unbekannt";
     const { data } = await supabase
       .from("schedule_assignments")
       .select("date,start_time,end_time,profiles!schedule_assignments_employee_id_fkey(full_name)")
@@ -401,7 +488,11 @@ export function AdminDashboardPage() {
       entry.profiles?.full_name ?? "Unbekannt",
     ]) as Array<[string, string, string]>;
 
-    const title = `Dienstplan ${format(new Date(), "MMMM yyyy", { locale: de })}`;
+    const monthLabel =
+      planRow ? format(new Date(planRow.year, planRow.month - 1, 1), "MMMM yyyy", { locale: de }) : "Unbekannter Monat";
+    const stand = new Date().toLocaleString("de-DE");
+    const statusLabel = planRow?.status ? `Status: ${planRow.status}` : "Status unbekannt";
+    const title = `Dienstplan Team ${teamName} – ${monthLabel} – ${statusLabel} – Stand: ${stand}`;
     exportSchedulePdf(title, rows);
     await exportScheduleExcel(title, rows);
   }
@@ -528,7 +619,13 @@ export function AdminDashboardPage() {
 
   async function deleteUser(userId: string) {
     const { error } = await supabase.functions.invoke("delete-user", { body: { user_id: userId } });
-    setNotice(error ? error.message : "Benutzer wurde gelöscht/anonymisiert.");
+    if (error) {
+      const status = (error as any)?.context?.status;
+      const body = (error as any)?.context?.body;
+      setNotice(status ? `Fehler ${status}: ${error.message}${body ? ` (${String(body)})` : ""}` : error.message);
+      return;
+    }
+    setNotice("Benutzer wurde gelöscht/anonymisiert.");
     if (!error) {
       await reloadProfiles();
     }
@@ -537,7 +634,9 @@ export function AdminDashboardPage() {
   async function deleteTeam(teamId: string) {
     const { data, error } = await supabase.functions.invoke("delete-team", { body: { team_id: teamId } });
     if (error) {
-      setNotice(error.message);
+      const status = (error as any)?.context?.status;
+      const body = (error as any)?.context?.body;
+      setNotice(status ? `Fehler ${status}: ${error.message}${body ? ` (${String(body)})` : ""}` : error.message);
       return;
     }
     const action = (data as any)?.action;
@@ -728,6 +827,31 @@ export function AdminDashboardPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="mt-4 rounded border p-3">
+          <h3 className="font-medium">Änderungshistorie</h3>
+          {auditLoading ? (
+            <p className="mt-2 text-sm text-slate-600">Historie wird geladen...</p>
+          ) : auditEntries.length ? (
+            <ul className="mt-2 space-y-2 text-sm">
+              {auditEntries.map((entry) => (
+                <li key={entry.id} className="rounded border p-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium">{entry.action}</span>
+                    <span className="text-xs text-slate-500">
+                      {new Date(entry.created_at).toLocaleString("de-DE")}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    von {entry.actor_id ? (auditActorName[entry.actor_id] ?? entry.actor_id) : "System"}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-slate-600">Keine Einträge.</p>
+          )}
         </div>
       </section>
 
