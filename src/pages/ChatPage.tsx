@@ -63,6 +63,7 @@ export function ChatPage() {
   const [newMessage, setNewMessage] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadImagePreviewUrl, setUploadImagePreviewUrl] = useState<string | null>(null);
+  const [fullscreenImage, setFullscreenImage] = useState<{ url: string; name: string; attachment: ChatAttachment } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -289,6 +290,17 @@ export function ChatPage() {
     return () => URL.revokeObjectURL(objectUrl);
   }, [uploadFile]);
 
+  useEffect(() => {
+    if (!fullscreenImage) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setFullscreenImage(null);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [fullscreenImage]);
+
   async function ensureDmThread(otherUserId: string) {
     const { data, error: fnError } = await supabase.functions.invoke("create-dm-thread", {
       body: { other_user_id: otherUserId },
@@ -480,14 +492,18 @@ export function ChatPage() {
                       {msgAttachments.map((a) => {
                         const signedAttachmentUrl = attachmentUrlsByPath.get(a.storage_path);
                         const isImage = isImageMimeType(a.mime_type);
+                        const fileName = a.storage_path.split("/").slice(-1)[0] ?? "Anhang";
                         return (
                           <div key={a.id} className="rounded border bg-white p-2">
                             {isImage && signedAttachmentUrl ? (
-                              <button className="block w-fit" onClick={() => downloadAttachment(a)}>
+                              <button
+                                className="block w-fit"
+                                onClick={() => setFullscreenImage({ url: signedAttachmentUrl, name: fileName, attachment: a })}
+                              >
                                 <img
                                   className="max-h-56 rounded border"
                                   src={signedAttachmentUrl}
-                                  alt={a.storage_path.split("/").slice(-1)[0] ?? "Bildanhang"}
+                                  alt={fileName}
                                 />
                               </button>
                             ) : null}
@@ -495,7 +511,7 @@ export function ChatPage() {
                               className="text-left text-sm px-2 py-1 rounded bg-white border hover:bg-gray-100 mt-2"
                               onClick={() => downloadAttachment(a)}
                             >
-                              Datei: {a.storage_path.split("/").slice(-1)[0]} ({Math.ceil(a.size_bytes / 1024)} KB)
+                              {isImage ? "Download" : `Datei: ${fileName} (${Math.ceil(a.size_bytes / 1024)} KB)`}
                             </button>
                           </div>
                         );
@@ -542,6 +558,23 @@ export function ChatPage() {
           </div>
         </div>
       )}
+
+      {fullscreenImage ? (
+        <div className="fixed inset-0 z-50 bg-black/80 p-4 flex items-center justify-center" onClick={() => setFullscreenImage(null)}>
+          <div className="relative max-w-[95vw] max-h-[95vh] flex flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="self-end rounded bg-white/90 px-3 py-1 text-sm hover:bg-white"
+              onClick={() => setFullscreenImage(null)}
+            >
+              Schließen
+            </button>
+            <img className="max-w-[95vw] max-h-[80vh] rounded border border-white/30" src={fullscreenImage.url} alt={fullscreenImage.name} />
+            <button className="rounded bg-white px-4 py-2 text-sm hover:bg-gray-100" onClick={() => downloadAttachment(fullscreenImage.attachment)}>
+              Download
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
