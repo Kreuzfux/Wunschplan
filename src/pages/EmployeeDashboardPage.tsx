@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { addDays, endOfMonth, format, startOfMonth } from "date-fns";
 import { de } from "date-fns/locale";
 import { Link } from "react-router-dom";
+import { TeamSwitcher } from "@/components/TeamSwitcher";
 import { useAuth } from "@/providers/AuthProvider";
 import { useMonthlyPlans } from "@/hooks/useMonthlyPlan";
 import { supabase } from "@/lib/supabase";
@@ -31,8 +32,8 @@ interface ScheduleAssignmentRow {
 }
 
 export function EmployeeDashboardPage() {
-  const { profile, signOut } = useAuth();
-  const { plans, selectedPlanId, setSelectedPlanId, plan, loading } = useMonthlyPlans(profile?.team_id);
+  const { profile, signOut, effectiveTeamId } = useAuth();
+  const { plans, selectedPlanId, setSelectedPlanId, plan, loading } = useMonthlyPlans(effectiveTeamId);
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [shifts, setShifts] = useState<DisplayShift[]>([]);
   const [assignments, setAssignments] = useState<ScheduleAssignmentRow[]>([]);
@@ -52,11 +53,11 @@ export function EmployeeDashboardPage() {
   }, [plan]);
 
   useEffect(() => {
-    if (!profile?.team_id) return;
+    if (!effectiveTeamId) return;
     supabase
       .from("shift_types")
       .select("*")
-      .eq("team_id", profile.team_id)
+      .eq("team_id", effectiveTeamId)
       .order("sort_order")
       .then(({ data }) => {
         const baseShifts = ((data ?? []) as ShiftType[]).filter((shift) => shift.is_active !== false);
@@ -71,7 +72,7 @@ export function EmployeeDashboardPage() {
           })),
         );
       });
-  }, [profile?.team_id]);
+  }, [effectiveTeamId]);
 
   useEffect(() => {
     if (!plan || !shifts.length) return;
@@ -246,7 +247,8 @@ export function EmployeeDashboardPage() {
           <h1 className="text-2xl font-semibold">Mitarbeiter-Dashboard</h1>
           <p className="text-sm text-slate-600">Willkommen, {profile?.full_name}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <TeamSwitcher />
           <Link className="rounded border px-3 py-2 text-sm" to="/chat">
             Chat
           </Link>

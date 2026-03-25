@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
+import { TeamSwitcher } from "@/components/TeamSwitcher";
 import { useAuth } from "@/providers/AuthProvider";
 import type { ChatAttachment, ChatMessage, ChatThread, Profile } from "@/types";
 
@@ -38,7 +39,7 @@ function getInitials(name: string | null | undefined) {
 }
 
 export function ChatPage() {
-  const { profile } = useAuth();
+  const { profile, effectiveTeamId } = useAuth();
 
   const [teamThreadId, setTeamThreadId] = useState<string | null>(null);
 
@@ -71,18 +72,18 @@ export function ChatPage() {
 
   useEffect(() => {
     async function loadTeamThread() {
-      if (!profile?.team_id) return;
+      if (!effectiveTeamId) return;
       // Ensure team thread exists. Admin can create; employees rely on existing row.
       const { data } = await supabase
         .from("chat_threads")
         .select("id,team_id,thread_type,created_at")
-        .eq("team_id", profile.team_id)
+        .eq("team_id", effectiveTeamId)
         .eq("thread_type", "team")
         .maybeSingle();
       setTeamThreadId((data as ChatThread | null)?.id ?? null);
     }
     loadTeamThread();
-  }, [profile?.team_id]);
+  }, [effectiveTeamId]);
 
   useEffect(() => {
     setMessages([]);
@@ -356,9 +357,10 @@ export function ChatPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-bold">Chat</h1>
           <div className="px-3 py-1 rounded border bg-gray-900 text-white text-sm">Teamchat</div>
+          <TeamSwitcher />
         </div>
         <Link to={planningTarget} className="px-3 py-2 rounded bg-gray-100 hover:bg-gray-200">
           {planningLabel}

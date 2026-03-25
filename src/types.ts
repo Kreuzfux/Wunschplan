@@ -12,6 +12,8 @@ export interface Profile {
   full_name: string;
   role: UserRole;
   team_id: string | null;
+  /** Aktives Team für Ansichten (Pläne, Chat, …). Fallback: `team_id`. */
+  active_team_id?: string | null;
   has_drivers_license: boolean;
   is_active: boolean;
   avatar_url?: string | null;
