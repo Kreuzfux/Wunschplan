@@ -1,0 +1,10 @@
+---
+description: Git-Commit-Nachrichten immer auf Deutsch formulieren
+alwaysApply: true
+---
+
+# Commit-Nachrichten (Deutsch)
+
+- Alle **Commit-Messages** auf **Deutsch** schreiben (Imperativ oder neutral beschreibend, z. B. „Füge … hinzu“, „Behebe …“, „Passe … an“).
+- Kurz und präzise: **Was** geändert wurde und **warum**, wenn es nicht offensichtlich ist.
+- Keine englischen Standard-Phrasen wie `fix:`, `feat:` als Pflicht; optional kurzes Präfix ist ok, Text bleibt deutsch.
