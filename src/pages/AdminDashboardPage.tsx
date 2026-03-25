@@ -847,7 +847,18 @@ export function AdminDashboardPage() {
               {auditEntries.map((entry) ***REMOVED*** (
                 <li key={entry.id} className="rounded border p-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium">{entry.action}</span>
+                    <span className="font-medium">
+                      {(() ***REMOVED*** {
+                        if (entry.action ***REMOVED*** "month_upsert") return "Monat angelegt/aktualisiert";
+                        if (entry.action ***REMOVED*** "month_status_set") return "Monatstatus geändert";
+                        if (entry.action ***REMOVED*** "schedule_generate") return "Dienstplan generiert";
+                        if (entry.action ***REMOVED*** "limit_set") return "Limit gesetzt";
+                        if (entry.action ***REMOVED*** "user_delete") return "Benutzer gelöscht/anonymisiert";
+                        if (entry.action ***REMOVED*** "team_archive") return "Team archiviert";
+                        if (entry.action ***REMOVED*** "team_delete") return "Team gelöscht";
+                        return entry.action;
+                      })()}
+                    </span>
                     <span className="text-xs text-slate-500">
                       {new Date(entry.created_at).toLocaleString("de-DE")}
                     </span>
