@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/providers/AuthProvider";
 import { supabase } from "@/lib/supabase";
 
@@ -123,6 +124,14 @@ export function ProfilePage() {
   return (
     <main className="mx-auto max-w-2xl p-4 md:p-6">
       <header className="mb-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <Link
+            className="rounded border px-3 py-2 text-sm"
+            to={profile && ["admin", "superuser"].includes(profile.role) ? "/admin" : "/dashboard"}
+          >
+            Zurück
+          </Link>
+        </div>
         <h1 className="text-2xl font-semibold">Profil</h1>
         <p className="text-sm text-slate-600">Hier kannst du Name, E‑Mail und dein Profilbild verwalten.</p>
       </header>
