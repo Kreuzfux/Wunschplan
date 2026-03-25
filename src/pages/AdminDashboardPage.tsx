@@ -812,7 +812,7 @@ export function AdminDashboardPage() {
                     Speichern
                   </button>
                   <button className="rounded border border-red-300 px-3 py-1 text-red-700" onClick={() => void deleteShiftType(item.shiftTypeId, item.name)}>
-                    Loeschen
+                    Löschen
                   </button>
                 </div>
               </li>
