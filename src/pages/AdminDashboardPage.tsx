@@ -526,6 +526,30 @@ export function AdminDashboardPage() {
     }
   }
 
+  async function deleteUser(userId: string) {
+    const { error } = await supabase.functions.invoke("delete-user", { body: { user_id: userId } });
+    setNotice(error ? error.message : "Benutzer wurde gelöscht/anonymisiert.");
+    if (!error) {
+      await reloadProfiles();
+    }
+  }
+
+  async function deleteTeam(teamId: string) {
+    const { data, error } = await supabase.functions.invoke("delete-team", { body: { team_id: teamId } });
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
+    const action = (data as any)?.action;
+    if (action === "archived") {
+      setNotice("Team wurde archiviert (es gab noch zugeordnete Daten).");
+    } else {
+      setNotice("Team wurde gelöscht.");
+    }
+    await reloadTeams();
+    await reloadProfiles();
+  }
+
   async function deletePlan(planId: string) {
     if (!(await ensurePlanPrivileges())) {
       return;
@@ -921,7 +945,16 @@ export function AdminDashboardPage() {
             <ul className="mt-3 space-y-2 text-sm">
               {teams.map((team) => (
                 <li key={team.id} className="rounded border p-2">
-                  {team.name}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>{team.name}</span>
+                    <button
+                      className="rounded border border-red-300 px-3 py-1 text-red-700"
+                      title="Löscht das Team, wenn keine Daten mehr zugeordnet sind; sonst wird es archiviert."
+                      onClick={() => void deleteTeam(team.id)}
+                    >
+                      Löschen
+                    </button>
+                  </div>
                 </li>
               ))}
               {!teams.length ? <li className="text-slate-500">Keine Teams vorhanden.</li> : null}
@@ -969,6 +1002,13 @@ export function AdminDashboardPage() {
                               ))}
                             </select>
                           </label>
+                          <button
+                            className="rounded border border-red-300 px-3 py-1 text-red-700"
+                            title="Entfernt den Login und anonymisiert das Profil (historische Daten bleiben ohne Personenbezug)."
+                            onClick={() => void deleteUser(member.id)}
+                          >
+                            Löschen
+                          </button>
                         </div>
                       </li>
                     ))}
