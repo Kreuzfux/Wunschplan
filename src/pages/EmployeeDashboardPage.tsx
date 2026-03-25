@@ -247,6 +247,9 @@ export function EmployeeDashboardPage() {
           <p className="text-sm text-slate-600">Willkommen, {profile?.full_name}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link className="rounded border px-3 py-2 text-sm" to="/chat">
+            Chat
+          </Link>
           <Link className="rounded border px-3 py-2 text-sm" to="/profil">
             Profil
           </Link>
