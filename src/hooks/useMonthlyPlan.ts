@@ -1,26 +1,45 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { MonthlyPlan } from "@/types";
 
-export function useMonthlyPlan() {
-  const [plan, setPlan] = useState<MonthlyPlan | null>(null);
+export function useMonthlyPlans(teamId: string | null | undefined) {
+  const [plans, setPlans] = useState<MonthlyPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
+      if (!teamId) {
+        setPlans([]);
+        setSelectedPlanId(null);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      const { data, error } = await supabase
         .from("monthly_plans")
         .select("*")
-        .in("status", ["open", "published"])
+        .eq("team_id", teamId)
         .order("year", { ascending: false })
-        .order("month", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      setPlan(data);
+        .order("month", { ascending: false });
+      if (error) {
+        setPlans([]);
+        setSelectedPlanId(null);
+        setLoading(false);
+        return;
+      }
+      const nextPlans = (data ?? []) as MonthlyPlan[];
+      setPlans(nextPlans);
+      setSelectedPlanId((prev) => prev ?? nextPlans[0]?.id ?? null);
       setLoading(false);
     }
     void load();
-  }, []);
+  }, [teamId]);
 
-  return { plan, loading };
+  const selectedPlan = useMemo(
+    () => plans.find((p) => p.id === selectedPlanId) ?? null,
+    [plans, selectedPlanId],
+  );
+
+  return { plans, selectedPlanId, setSelectedPlanId, plan: selectedPlan, loading };
 }

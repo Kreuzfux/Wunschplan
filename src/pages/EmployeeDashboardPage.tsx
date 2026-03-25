@@ -3,7 +3,7 @@ import { addDays, endOfMonth, format, startOfMonth } from "date-fns";
 import { de } from "date-fns/locale";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/providers/AuthProvider";
-import { useMonthlyPlan } from "@/hooks/useMonthlyPlan";
+import { useMonthlyPlans } from "@/hooks/useMonthlyPlan";
 import { supabase } from "@/lib/supabase";
 import type { ShiftType } from "@/types";
 
@@ -32,7 +32,7 @@ interface ScheduleAssignmentRow {
 
 export function EmployeeDashboardPage() {
   const { profile, signOut } = useAuth();
-  const { plan, loading } = useMonthlyPlan();
+  const { plans, selectedPlanId, setSelectedPlanId, plan, loading } = useMonthlyPlans(profile?.team_id);
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [shifts, setShifts] = useState<DisplayShift[]>([]);
   const [assignments, setAssignments] = useState<ScheduleAssignmentRow[]>([]);
@@ -94,6 +94,14 @@ export function EmployeeDashboardPage() {
         );
       });
   }, [plan, shifts.length]);
+
+  useEffect(() => {
+    setSelectedDates([]);
+    setSelectedShiftTypeIds([]);
+    setRemarks("");
+    setSavedMessage(null);
+    setErrorMessage(null);
+  }, [plan?.id]);
 
   useEffect(() => {
     async function loadAssignments() {
@@ -251,22 +259,46 @@ export function EmployeeDashboardPage() {
       </header>
 
       {!plan ? (
-        <section className="rounded-xl bg-white p-6 shadow">Aktuell ist kein offener Monatsplan vorhanden.</section>
+        <section className="rounded-xl bg-white p-6 shadow">
+          Aktuell sind keine Monate für dein Team vorhanden.
+        </section>
       ) : (
         <section className="space-y-4">
           <div className="rounded-xl bg-white p-4 shadow">
             <h2 className="text-lg font-medium">
-              Wunschplanung {format(new Date(plan.year, plan.month - 1, 1), "MMMM yyyy", { locale: de })}
+              Monat {format(new Date(plan.year, plan.month - 1, 1), "MMMM yyyy", { locale: de })}
             </h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <label className="text-slate-600">
+                Monat auswählen
+                <select
+                  className="ml-2 rounded border px-2 py-1"
+                  value={selectedPlanId ?? ""}
+                  onChange={(e) => setSelectedPlanId(e.target.value || null)}
+                >
+                  {plans.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {format(new Date(p.year, p.month - 1, 1), "MMMM yyyy", { locale: de })} ({p.status})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <span className="text-slate-600">Status: {plan.status}</span>
+            </div>
             <p className="text-sm text-slate-600">Mitarbeiter: {profile?.full_name}</p>
-            {plan.status === "published" ? (
+            {plan.status === "open" ? (
+              <p className="text-sm text-slate-600">Tippe einen oder mehrere Tage an, um Schicht und Bemerkung zu erfassen.</p>
+            ) : plan.status === "published" ? (
               <p className="text-sm text-slate-600">Der Monat ist veröffentlicht. Unten siehst du deinen Dienstplan.</p>
             ) : (
-              <p className="text-sm text-slate-600">Tippe einen oder mehrere Tage an, um Schicht und Bemerkung zu erfassen.</p>
+              <p className="text-sm text-slate-600">
+                Für diesen Monat ist aktuell keine Wunschplanung möglich. Bitte wähle einen offenen Monat oder
+                schaue in einen veröffentlichten Monat.
+              </p>
             )}
           </div>
 
-          {plan.status !== "published" ? (
+          {plan.status === "open" ? (
             <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-4 shadow sm:grid-cols-4 md:grid-cols-7">
               {days.map((day) => {
                 const key = format(day, "yyyy-MM-dd");
@@ -283,7 +315,7 @@ export function EmployeeDashboardPage() {
                 );
               })}
             </div>
-          ) : (
+          ) : plan.status === "published" ? (
             <div className="rounded-xl bg-white p-4 shadow">
               <h3 className="font-medium">Dein Dienstplan</h3>
               {assignmentsLoading ? (
@@ -304,9 +336,16 @@ export function EmployeeDashboardPage() {
               )}
               {errorMessage ? <p className="mt-2 text-sm text-red-700">{errorMessage}</p> : null}
             </div>
+          ) : (
+            <div className="rounded-xl bg-white p-4 shadow">
+              <h3 className="font-medium">Monat ansehen</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Status „{plan.status}“: In diesem Zustand gibt es hier keine Mitarbeiter-Aktion.
+              </p>
+            </div>
           )}
 
-          {plan.status !== "published" && selectedDates.length ? (
+          {plan.status === "open" && selectedDates.length ? (
             <div className="rounded-xl bg-white p-4 shadow">
               <h3 className="font-medium">
                 Eintrag für {selectedDates.length === 1 ? format(new Date(selectedDates[0]), "PPPP", { locale: de }) : `${selectedDates.length} ausgewählte Tage`}
