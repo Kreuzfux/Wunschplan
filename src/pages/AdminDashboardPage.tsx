@@ -687,7 +687,10 @@ export function AdminDashboardPage() {
   return (
     <main className="mx-auto max-w-7xl p-4 md:p-6">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{isSuperuser ? "Team-Admin Bereich" : "Admin-Bereich"}</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">{isSuperuser ? "Team-Admin Bereich" : "Admin-Bereich"}</h1>
+          <p className="text-sm text-slate-600">Hallo, {profile?.full_name}</p>
+        </div>
         <div className="flex items-center gap-2">
           <Link className="rounded border px-3 py-2 text-sm" to="/profil">
             Profil
