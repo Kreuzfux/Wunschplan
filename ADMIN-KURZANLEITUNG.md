@@ -8,11 +8,17 @@ Diese Kurzinfo fasst die wichtigsten Schritte fuer die monatliche Planung zusamm
 - Als Admin anmelden.
 - Falls Login haengt: **Lokale Daten zuruecksetzen** klicken und erneut anmelden.
 
+## Rollen (kurz)
+
+- **Admin**: global (Teams/Benutzer/Monate, Generieren, Publizieren, Export).
+- **Superuser**: nur eigenes Team (Team-Admin Bereich).
+
 ## 2) Monat vorbereiten
 
 1. Admin-Bereich aufrufen (`/#/admin`).
-2. **Aktuellen Monat anlegen** klicken.
-3. Status auf **open** setzen.
+2. Team wählen (Admin: Dropdown; Superuser: fest).
+3. **Monat anlegen** klicken.
+4. Status auf **open** setzen.
 
 Ergebnis: Mitarbeiter koennen Wunschdienste eintragen.
 
@@ -25,7 +31,12 @@ Ergebnis: Mitarbeiter koennen Wunschdienste eintragen.
 
 1. Nach Fristende oder vollstaendiger Abgabe auf **Generieren** klicken.
 2. Ergebnis pruefen.
-3. Bei Bedarf manuell anpassen.
+3. Bei Bedarf manuell anpassen (Hinweis: nach Publizieren nur noch als manueller Override).
+
+### Limits (max. Schichten pro Monat)
+
+- Pro Mitarbeiter kann ein Limit gepflegt werden.
+- Bei offenen Slots zeigt die Generierung eine Warnung an.
 
 ## 5) Plan freigeben
 
@@ -38,6 +49,7 @@ Ergebnis: Mitarbeiter sehen den freigegebenen Dienstplan.
 - Im Admin-Bereich Export ausloesen:
   - PDF
   - Excel
+  - Export enthält Team/Monat/Status/Stand (Belegkopf).
 
 ## Hauefige Probleme
 
