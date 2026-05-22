@@ -17,15 +17,15 @@ function getSystemDark(): boolean {
 }
 
 function resolveDark(preference: ThemePreference): boolean {
-  if (preference ***REMOVED*** "dark") return true;
-  if (preference ***REMOVED*** "light") return false;
+  if (preference === "dark") return true;
+  if (preference === "light") return false;
   return getSystemDark();
 }
 
 function readStoredPreference(): ThemePreference {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw ***REMOVED*** "light" || raw ***REMOVED*** "dark" || raw ***REMOVED*** "system") return raw;
+    if (raw === "light" || raw === "dark" || raw === "system") return raw;
   } catch {
     // ignore
   }
@@ -38,7 +38,7 @@ function applyDarkClass(dark: boolean) {
 
 interface ThemeContextValue {
   preference: ThemePreference;
-  setPreference: (p: ThemePreference) ***REMOVED*** void;
+  setPreference: (p: ThemePreference) => void;
   /** Effektiv hell/dunkel (bei „system“ = OS) */
   resolvedDark: boolean;
 }
@@ -46,13 +46,13 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [preference, setPreferenceState] = useState<ThemePreference>(() ***REMOVED***
-    typeof window ***REMOVED*** "undefined" ? "system" : readStoredPreference(),
+  const [preference, setPreferenceState] = useState<ThemePreference>(() =>
+    typeof window === "undefined" ? "system" : readStoredPreference(),
   );
 
-  const resolvedDark = useMemo(() ***REMOVED*** resolveDark(preference), [preference]);
+  const resolvedDark = useMemo(() => resolveDark(preference), [preference]);
 
-  const setPreference = useCallback((p: ThemePreference) ***REMOVED*** {
+  const setPreference = useCallback((p: ThemePreference) => {
     setPreferenceState(p);
     try {
       localStorage.setItem(STORAGE_KEY, p);
@@ -62,21 +62,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     applyDarkClass(resolveDark(p));
   }, []);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     applyDarkClass(resolvedDark);
   }, [resolvedDark]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (preference !== "system") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const sync = () ***REMOVED*** applyDarkClass(mq.matches);
+    const sync = () => applyDarkClass(mq.matches);
     sync();
     mq.addEventListener("change", sync);
-    return () ***REMOVED*** mq.removeEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
   }, [preference]);
 
   const value = useMemo(
-    () ***REMOVED*** ({ preference, setPreference, resolvedDark }),
+    () => ({ preference, setPreference, resolvedDark }),
     [preference, setPreference, resolvedDark],
   );
 

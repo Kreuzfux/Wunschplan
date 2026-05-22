@@ -17,9 +17,9 @@ function buildCorsHeaders(origin: string | null) {
   };
 }
 
-serve(async (req) ***REMOVED*** {
+serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req.headers.get("Origin"));
-  if (req.method ***REMOVED*** "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -55,7 +55,7 @@ serve(async (req) ***REMOVED*** {
       });
     }
 
-    const body = await req.json().catch(() ***REMOVED*** ({}));
+    const body = await req.json().catch(() => ({}));
     const otherUserId = String((body as any).other_user_id ?? "");
     if (!otherUserId) {
       return new Response(JSON.stringify({ error: "other_user_id fehlt." }), {
@@ -63,7 +63,7 @@ serve(async (req) ***REMOVED*** {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (otherUserId ***REMOVED*** authData.user.id) {
+    if (otherUserId === authData.user.id) {
       return new Response(JSON.stringify({ error: "DM mit sich selbst ist nicht erlaubt." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -72,8 +72,8 @@ serve(async (req) ***REMOVED*** {
 
     const { data: callerTeams } = await adminClient.from("team_memberships").select("team_id").eq("user_id", authData.user.id);
     const { data: otherTeams } = await adminClient.from("team_memberships").select("team_id").eq("user_id", otherUserId);
-    const callerSet = new Set((callerTeams ?? []).map((r: { team_id: string }) ***REMOVED*** r.team_id));
-    const otherSet = new Set((otherTeams ?? []).map((r: { team_id: string }) ***REMOVED*** r.team_id));
+    const callerSet = new Set((callerTeams ?? []).map((r: { team_id: string }) => r.team_id));
+    const otherSet = new Set((otherTeams ?? []).map((r: { team_id: string }) => r.team_id));
     let sharedTeamId: string | null = null;
     for (const tid of callerSet) {
       if (otherSet.has(tid)) {
@@ -100,8 +100,8 @@ serve(async (req) ***REMOVED*** {
         .from("chat_thread_members")
         .select("user_id")
         .eq("thread_id", t.id);
-      const ids = new Set((members ?? []).map((m: any) ***REMOVED*** m.user_id));
-      if (ids.has(authData.user.id) && ids.has(otherUserId) && ids.size ***REMOVED*** 2) {
+      const ids = new Set((members ?? []).map((m: any) => m.user_id));
+      if (ids.has(authData.user.id) && ids.has(otherUserId) && ids.size === 2) {
         threadId = t.id;
         break;
       }

@@ -54,9 +54,10 @@ const MONTH_OPTIONS = [
 ];
 
 export function AdminDashboardPage() {
-  const { signOut, profile } = useAuth();
-  const isAdmin = profile?.role ***REMOVED*** "admin";
-  const isSuperuser = profile?.role ***REMOVED*** "superuser";
+  const { signOut, profile, teamSwitcherTeams, effectiveTeamId } = useAuth();
+  const isAdmin = profile?.role === "admin";
+  const isSuperuser = profile?.role === "superuser";
+  const isTeamScopedSuperuser = isSuperuser && !isAdmin;
   const now = new Date();
   const [plans, setPlans] = useState<MonthlyPlan[]>([]);
   const [shifts, setShifts] = useState<ShiftType[]>([]);
@@ -84,17 +85,17 @@ export function AdminDashboardPage() {
   const [limitDraftByEmployee, setLimitDraftByEmployee] = useState<Record<string, string>>({});
   const [planMonth, setPlanMonth] = useState(now.getMonth() + 1);
   const [planYear, setPlanYear] = useState(now.getFullYear());
-  const yearOptions = Array.from({ length: 6 }, (_, i) ***REMOVED*** now.getFullYear() + i);
-  const activeShifts = shifts.filter((shift) ***REMOVED*** shift.is_active !== false);
-  const limitsTeamEmployees = useMemo(() ***REMOVED*** {
-    if (planTeamFilter ***REMOVED*** "all") return [];
+  const yearOptions = Array.from({ length: 6 }, (_, i) => now.getFullYear() + i);
+  const activeShifts = shifts.filter((shift) => shift.is_active !== false);
+  const limitsTeamEmployees = useMemo(() => {
+    if (planTeamFilter === "all") return [];
     return profiles
-      .filter((p) ***REMOVED*** {
+      .filter((p) => {
         if (p.role !== "employee") return false;
         const memberTeams = membershipsByUserId[p.id] ?? [];
-        return p.team_id ***REMOVED*** planTeamFilter || memberTeams.includes(planTeamFilter);
+        return p.team_id === planTeamFilter || memberTeams.includes(planTeamFilter);
       })
-      .sort((a, b) ***REMOVED*** a.full_name.localeCompare(b.full_name, "de"));
+      .sort((a, b) => a.full_name.localeCompare(b.full_name, "de"));
   }, [profiles, planTeamFilter, membershipsByUserId]);
 
   async function reloadPlans() {
@@ -151,7 +152,7 @@ export function AdminDashboardPage() {
     if (unique.length) {
       const { error: insError } = await supabase
         .from("team_memberships")
-        .insert(unique.map((team_id) ***REMOVED*** ({ user_id: userId, team_id })));
+        .insert(unique.map((team_id) => ({ user_id: userId, team_id })));
       if (insError) {
         setNotice(insError.message);
         return;
@@ -195,7 +196,7 @@ export function AdminDashboardPage() {
     }
     const rows = (data ?? []) as AuditLogEntry[];
     setAuditEntries(rows);
-    const actorIds = Array.from(new Set(rows.map((r) ***REMOVED*** r.actor_id).filter(Boolean))) as string[];
+    const actorIds = Array.from(new Set(rows.map((r) => r.actor_id).filter(Boolean))) as string[];
     if (actorIds.length) {
       const { data: actorRows } = await supabase.from("profiles").select("id,full_name").in("id", actorIds);
       const map: Record<string, string> = {};
@@ -226,13 +227,13 @@ export function AdminDashboardPage() {
   }
 
   async function reloadEmployeeShiftLimits() {
-    if (planTeamFilter ***REMOVED*** "all") {
+    if (planTeamFilter === "all") {
       setShiftLimitsByEmployee({});
       return;
     }
     const empIds = profiles
-      .filter((p) ***REMOVED*** p.role ***REMOVED*** "employee" && p.team_id ***REMOVED*** planTeamFilter)
-      .map((p) ***REMOVED*** p.id);
+      .filter((p) => p.role === "employee" && p.team_id === planTeamFilter)
+      .map((p) => p.id);
     if (!empIds.length) {
       setShiftLimitsByEmployee({});
       return;
@@ -259,7 +260,7 @@ export function AdminDashboardPage() {
     const fallback =
       shiftLimitsByEmployee[employeeId] !== undefined ? String(shiftLimitsByEmployee[employeeId]) : "";
     const raw = (draft !== undefined ? draft : fallback).trim();
-    const n = raw ***REMOVED*** "" ? 31 : Number.parseInt(raw, 10);
+    const n = raw === "" ? 31 : Number.parseInt(raw, 10);
     if (!Number.isFinite(n) || n < 0 || n > 366) {
       setNotice("Max. Schichten: bitte Zahl zwischen 0 und 366 (leer = Standard 31).");
       return;
@@ -272,8 +273,8 @@ export function AdminDashboardPage() {
       setNotice(error.message);
       return;
     }
-    setShiftLimitsByEmployee((prev) ***REMOVED*** ({ ...prev, [employeeId]: n }));
-    setLimitDraftByEmployee((prev) ***REMOVED*** {
+    setShiftLimitsByEmployee((prev) => ({ ...prev, [employeeId]: n }));
+    setLimitDraftByEmployee((prev) => {
       const next = { ...prev };
       delete next[employeeId];
       return next;
@@ -283,7 +284,7 @@ export function AdminDashboardPage() {
       "limit_set",
       "employee_shift_limit",
       employeeId,
-      planTeamFilter ***REMOVED*** "all" ? null : planTeamFilter,
+      planTeamFilter === "all" ? null : planTeamFilter,
       { max_shifts_per_month: n, team_id: planTeamFilter },
     );
   }
@@ -299,7 +300,7 @@ export function AdminDashboardPage() {
     }
 
     const baseRows = (data ?? []) as Array<{ employee_id: string; is_submitted: boolean }>;
-    const employeeIds = Array.from(new Set(baseRows.map((row) ***REMOVED*** row.employee_id)));
+    const employeeIds = Array.from(new Set(baseRows.map((row) => row.employee_id)));
     if (!employeeIds.length) {
       setSubmissions([]);
       return;
@@ -309,63 +310,67 @@ export function AdminDashboardPage() {
       .from("profiles")
       .select("id,full_name,team_id")
       .in("id", employeeIds);
-    const nameMap = new Map((profileRows ?? []).map((row: any) ***REMOVED*** [row.id, row.full_name as string]));
-    const teamMap = new Map((profileRows ?? []).map((row: any) ***REMOVED*** [row.id, (row.team_id as string | null) ?? null]));
+    const nameMap = new Map((profileRows ?? []).map((row: any) => [row.id, row.full_name as string]));
+    const teamMap = new Map((profileRows ?? []).map((row: any) => [row.id, (row.team_id as string | null) ?? null]));
 
-    const mergedRows: SubmissionRow[] = baseRows.map((row) ***REMOVED*** ({
+    const mergedRows: SubmissionRow[] = baseRows.map((row) => ({
         employee_id: row.employee_id,
         is_submitted: row.is_submitted,
         full_name: nameMap.get(row.employee_id),
         team_id: teamMap.get(row.employee_id) ?? null,
       }));
     const filteredRows =
-      submissionTeamFilter ***REMOVED*** "all"
+      submissionTeamFilter === "all"
         ? mergedRows
-        : mergedRows.filter((row) ***REMOVED*** row.team_id ***REMOVED*** submissionTeamFilter);
+        : mergedRows.filter((row) => row.team_id === submissionTeamFilter);
     setSubmissions(filteredRows);
   }
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     void reloadPlans();
     void reloadShifts();
     void reloadTeams();
     void reloadProfiles();
   }, []);
 
-  useEffect(() ***REMOVED*** {
-    if (isSuperuser && profile?.team_id) {
-      setSubmissionTeamFilter(profile.team_id);
-      setShiftTeamFilter(profile.team_id);
-      setPlanTeamFilter(profile.team_id);
-    }
-  }, [isSuperuser, profile?.team_id]);
+  useEffect(() => {
+    if (!isTeamScopedSuperuser) return;
 
-  useEffect(() ***REMOVED*** {
+    const allowedTeamIds = teamSwitcherTeams.map((t) => t.id);
+    const preferredTeamId = effectiveTeamId ?? profile?.team_id ?? allowedTeamIds[0] ?? null;
+    if (!preferredTeamId) return;
+
+    setSubmissionTeamFilter(preferredTeamId);
+    setShiftTeamFilter(preferredTeamId);
+    setPlanTeamFilter((prev) => (prev === "all" || !allowedTeamIds.includes(prev) ? preferredTeamId : prev));
+  }, [effectiveTeamId, isTeamScopedSuperuser, profile?.team_id, teamSwitcherTeams]);
+
+  useEffect(() => {
     if (!isAdmin && notice?.toLowerCase().includes("monthly_plans") && !notice.includes("eigenen Team")) {
       setNotice("Als Superuser kannst du Monate nur für dein eigenes Team verwalten.");
     }
   }, [isAdmin, notice]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (!plans.length) return;
     if (!selectedPlanId) setSelectedPlanId(plans[0].id);
     if (!shiftEditorPlanId) setShiftEditorPlanId(plans[0].id);
   }, [plans, selectedPlanId, shiftEditorPlanId]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     void reloadPlans();
   }, [planTeamFilter]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     setLimitDraftByEmployee({});
     void reloadEmployeeShiftLimits();
   }, [planTeamFilter, profiles, membershipsByUserId]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     void reloadShifts();
   }, [shiftTeamFilter]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (!selectedPlanId) return;
     void reloadSubmissions(selectedPlanId);
 
@@ -379,22 +384,22 @@ export function AdminDashboardPage() {
           table: "wish_submissions",
           filter: `monthly_plan_id=eq.${selectedPlanId}`,
         },
-        () ***REMOVED*** {
+        () => {
           void reloadSubmissions(selectedPlanId);
         },
       )
       .subscribe();
 
-    return () ***REMOVED*** {
+    return () => {
       void supabase.removeChannel(channel);
     };
   }, [selectedPlanId, submissionTeamFilter]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     void reloadAudit(selectedPlanId);
   }, [selectedPlanId]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (!shiftEditorPlanId || !shifts.length) {
       setEditableShiftTimes([]);
       return;
@@ -404,13 +409,13 @@ export function AdminDashboardPage() {
       .from("shift_type_overrides")
       .select("shift_type_id,override_start_time,override_end_time")
       .eq("monthly_plan_id", shiftEditorPlanId)
-      .then(({ data }) ***REMOVED*** {
+      .then(({ data }) => {
         const overrides = (data ?? []) as ShiftTypeOverrideRow[];
-        const overrideMap = new Map(overrides.map((item) ***REMOVED*** [item.shift_type_id, item]));
+        const overrideMap = new Map(overrides.map((item) => [item.shift_type_id, item]));
         setEditableShiftTimes(
           shifts
-            .filter((shift) ***REMOVED*** shift.is_active !== false)
-            .map((shift) ***REMOVED*** {
+            .filter((shift) => shift.is_active !== false)
+            .map((shift) => {
             const override = overrideMap.get(shift.id);
             return {
               shiftTypeId: shift.id,
@@ -439,7 +444,7 @@ export function AdminDashboardPage() {
       return;
     }
 
-    const targetTeamId = planTeamFilter ***REMOVED*** "all" ? null : planTeamFilter;
+    const targetTeamId = planTeamFilter === "all" ? null : planTeamFilter;
     if (!targetTeamId) {
       setNotice("Bitte ein Team für den Monat auswählen.");
       return;
@@ -471,7 +476,7 @@ export function AdminDashboardPage() {
     const { error } = await supabase.from("monthly_plans").update({ status }).eq("id", id);
     setNotice(error ? error.message : `Status auf '${status}' gesetzt.`);
     if (!error) {
-      const planRow = plans.find((p) ***REMOVED*** p.id ***REMOVED*** id);
+      const planRow = plans.find((p) => p.id === id);
       await logAudit("month_status_set", "monthly_plan", id, planRow?.team_id ?? null, { status });
       await reloadPlans();
       await reloadAudit(id);
@@ -508,7 +513,7 @@ export function AdminDashboardPage() {
           : null,
       ].filter(Boolean);
       setNotice(parts.join(" "));
-      const planRow = plans.find((p) ***REMOVED*** p.id ***REMOVED*** planId);
+      const planRow = plans.find((p) => p.id === planId);
       await logAudit("schedule_generate", "monthly_plan", planId, planRow?.team_id ?? null, {
         created: result.created,
         unfilled_slots: result.unfilled_slots,
@@ -527,15 +532,15 @@ export function AdminDashboardPage() {
   }
 
   async function handleExport(planId: string) {
-    const planRow = plans.find((p) ***REMOVED*** p.id ***REMOVED*** planId);
+    const planRow = plans.find((p) => p.id === planId);
     const teamName =
-      planRow?.team_id ? teams.find((t) ***REMOVED*** t.id ***REMOVED*** planRow.team_id)?.name ?? planRow.team_id : "Unbekannt";
+      planRow?.team_id ? teams.find((t) => t.id === planRow.team_id)?.name ?? planRow.team_id : "Unbekannt";
     const { data } = await supabase
       .from("schedule_assignments")
       .select("date,start_time,end_time,profiles!schedule_assignments_employee_id_fkey(full_name)")
       .eq("monthly_plan_id", planId);
 
-    const rows = (data ?? []).map((entry: any) ***REMOVED*** [
+    const rows = (data ?? []).map((entry: any) => [
       entry.date,
       `${entry.start_time}-${entry.end_time}`,
       entry.profiles?.full_name ?? "Unbekannt",
@@ -551,8 +556,8 @@ export function AdminDashboardPage() {
   }
 
   function updateEditableShiftTime(shiftTypeId: string, field: "start" | "end", value: string) {
-    setEditableShiftTimes((prev) ***REMOVED***
-      prev.map((item) ***REMOVED*** (item.shiftTypeId ***REMOVED*** shiftTypeId ? { ...item, [field]: value } : item)),
+    setEditableShiftTimes((prev) =>
+      prev.map((item) => (item.shiftTypeId === shiftTypeId ? { ...item, [field]: value } : item)),
     );
   }
 
@@ -591,7 +596,7 @@ export function AdminDashboardPage() {
       return;
     }
 
-    if (shiftTeamFilter ***REMOVED*** "all") {
+    if (shiftTeamFilter === "all") {
       setNotice("Bitte zuerst ein Team für die Schicht auswählen.");
       return;
     }
@@ -621,7 +626,7 @@ export function AdminDashboardPage() {
       return;
     }
 
-    const maxSortOrder = shifts.reduce((max, shift) ***REMOVED*** Math.max(max, shift.sort_order ?? 0), 0);
+    const maxSortOrder = shifts.reduce((max, shift) => Math.max(max, shift.sort_order ?? 0), 0);
     const { error } = await supabase.from("shift_types").insert({
       name: trimmedName,
       team_id: targetTeamId,
@@ -676,13 +681,13 @@ export function AdminDashboardPage() {
   }
 
   function teamsForMembershipPicker() {
-    if (isSuperuser && profile?.team_id) return teams.filter((t) ***REMOVED*** t.id ***REMOVED*** profile.team_id);
+    if (isSuperuser && profile?.team_id) return teams.filter((t) => t.id === profile.team_id);
     return teams;
   }
 
   function toggleUserTeam(userId: string, teamId: string, checked: boolean) {
     const cur = membershipsByUserId[userId] ?? [];
-    const next = checked ? Array.from(new Set([...cur, teamId])) : cur.filter((t) ***REMOVED*** t !== teamId);
+    const next = checked ? Array.from(new Set([...cur, teamId])) : cur.filter((t) => t !== teamId);
     void updateUserTeams(userId, next);
   }
 
@@ -709,7 +714,7 @@ export function AdminDashboardPage() {
       return;
     }
     const action = (data as any)?.action;
-    if (action ***REMOVED*** "archived") {
+    if (action === "archived") {
       setNotice("Team wurde archiviert (es gab noch zugeordnete Daten).");
     } else {
       setNotice("Team wurde gelöscht.");
@@ -726,7 +731,7 @@ export function AdminDashboardPage() {
       try {
         const res = (error as any)?.context as Response | undefined;
         if (res) {
-          const payload = await res.clone().json().catch(async () ***REMOVED*** ({ error: await res.clone().text() }));
+          const payload = await res.clone().json().catch(async () => ({ error: await res.clone().text() }));
           bodyMessage = (payload as any)?.error ? String((payload as any).error) : "";
         }
       } catch {
@@ -765,7 +770,7 @@ export function AdminDashboardPage() {
       setNotice("Nur Admins und Superuser dürfen diese Aktion ausführen.");
       return false;
     }
-    if (data?.role ***REMOVED*** "superuser" && planTeamFilter ***REMOVED*** "all") {
+    if (data?.role === "superuser" && planTeamFilter === "all") {
       setNotice("Superuser dürfen nur Monate ihres eigenen Teams verwalten.");
       return false;
     }
@@ -790,7 +795,7 @@ export function AdminDashboardPage() {
           <Link className="btn-secondary" to="/profil">
             Profil
           </Link>
-          <button className="btn-secondary" type="button" onClick={() ***REMOVED*** void signOut()}>
+          <button className="btn-secondary" type="button" onClick={() => void signOut()}>
             Ausloggen
           </button>
         </div>
@@ -815,11 +820,11 @@ export function AdminDashboardPage() {
             <select
               className="select ml-2"
               value={planTeamFilter}
-              onChange={(e) ***REMOVED*** setPlanTeamFilter(e.target.value)}
-              disabled={isSuperuser}
+              onChange={(e) => setPlanTeamFilter(e.target.value)}
+              disabled={isTeamScopedSuperuser && teamSwitcherTeams.length < 2}
             >
-              {!isSuperuser ? <option value="all">Alle Teams</option> : null}
-              {teams.map((team) ***REMOVED*** (
+              {!isTeamScopedSuperuser ? <option value="all">Alle Teams</option> : null}
+              {(isTeamScopedSuperuser ? teamSwitcherTeams : teams).map((team) => (
                 <option key={team.id} value={team.id}>
                   {team.name}
                 </option>
@@ -831,9 +836,9 @@ export function AdminDashboardPage() {
             <select
               className="select ml-2"
               value={planMonth}
-              onChange={(e) ***REMOVED*** setPlanMonth(Number(e.target.value))}
+              onChange={(e) => setPlanMonth(Number(e.target.value))}
             >
-              {MONTH_OPTIONS.map((monthOption) ***REMOVED*** (
+              {MONTH_OPTIONS.map((monthOption) => (
                 <option key={monthOption.value} value={monthOption.value}>
                   {monthOption.label}
                 </option>
@@ -845,9 +850,9 @@ export function AdminDashboardPage() {
             <select
               className="select ml-2"
               value={planYear}
-              onChange={(e) ***REMOVED*** setPlanYear(Number(e.target.value))}
+              onChange={(e) => setPlanYear(Number(e.target.value))}
             >
-              {yearOptions.map((yearOption) ***REMOVED*** (
+              {yearOptions.map((yearOption) => (
                 <option key={yearOption} value={yearOption}>
                   {yearOption}
                 </option>
@@ -856,8 +861,8 @@ export function AdminDashboardPage() {
           </label>
           <button
             className="btn-primary disabled:opacity-60"
-            disabled={isSuperuser && planTeamFilter ***REMOVED*** "all"}
-            onClick={() ***REMOVED*** void createSelectedMonthPlan()}
+            disabled={isSuperuser && planTeamFilter === "all"}
+            onClick={() => void createSelectedMonthPlan()}
           >
             Monat anlegen
           </button>
@@ -872,7 +877,7 @@ export function AdminDashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-700 dark:bg-slate-900/50">
-              {plans.map((plan) ***REMOVED*** (
+              {plans.map((plan) => (
                 <tr key={plan.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
                   <td className="px-3 py-2.5 font-medium text-slate-900 dark:text-slate-50">{`${plan.month}.${plan.year}`}</td>
                   <td className="px-3 py-2.5">
@@ -882,53 +887,53 @@ export function AdminDashboardPage() {
                     <button
                       className="btn-secondary btn-sm"
                       title="Setzt den Monat auf 'open', damit Mitarbeiter ihre Wuensche eintragen koennen."
-                      disabled={isSuperuser && planTeamFilter ***REMOVED*** "all"}
-                      onClick={() ***REMOVED*** void updatePlanStatus(plan.id, "open")}
+                      disabled={isSuperuser && planTeamFilter === "all"}
+                      onClick={() => void updatePlanStatus(plan.id, "open")}
                     >
                       Open
                     </button>
                     <button
                       className="btn-secondary btn-sm"
                       title="Setzt den Monat auf 'closed' und verhindert weitere Eintraege."
-                      disabled={isSuperuser && planTeamFilter ***REMOVED*** "all"}
-                      onClick={() ***REMOVED*** void updatePlanStatus(plan.id, "closed")}
+                      disabled={isSuperuser && planTeamFilter === "all"}
+                      onClick={() => void updatePlanStatus(plan.id, "closed")}
                     >
                       Close
                     </button>
                     <button
                       className="btn-secondary btn-sm"
                       title="Startet die automatische Dienstplan-Generierung fuer den ausgewaehlten Monat."
-                      disabled={isSuperuser && planTeamFilter ***REMOVED*** "all"}
-                      onClick={() ***REMOVED*** void triggerGeneration(plan.id)}
+                      disabled={isSuperuser && planTeamFilter === "all"}
+                      onClick={() => void triggerGeneration(plan.id)}
                     >
                       Generieren
                     </button>
                     <button
                       className="btn-secondary btn-sm"
                       title="Veroeffentlicht den Plan, damit Mitarbeiter den finalen Dienstplan sehen."
-                      disabled={isSuperuser && planTeamFilter ***REMOVED*** "all"}
-                      onClick={() ***REMOVED*** void updatePlanStatus(plan.id, "published")}
+                      disabled={isSuperuser && planTeamFilter === "all"}
+                      onClick={() => void updatePlanStatus(plan.id, "published")}
                     >
                       Publizieren
                     </button>
                     <button
                       className="btn-danger btn-sm disabled:opacity-60"
-                      disabled={isSuperuser && planTeamFilter ***REMOVED*** "all"}
-                      onClick={() ***REMOVED*** void deletePlan(plan.id)}
+                      disabled={isSuperuser && planTeamFilter === "all"}
+                      onClick={() => void deletePlan(plan.id)}
                     >
                       Löschen
                     </button>
                     <button
                       className="btn-secondary btn-sm"
                       title="Zeigt den Abgabestatus der Mitarbeiter fuer diesen Monat."
-                      onClick={() ***REMOVED*** setSelectedPlanId(plan.id)}
+                      onClick={() => setSelectedPlanId(plan.id)}
                     >
                       Abgaben
                     </button>
                     <button
                       className="btn-secondary btn-sm"
                       title="Exportiert den Dienstplan als PDF und Excel-Datei."
-                      onClick={() ***REMOVED*** void handleExport(plan.id)}
+                      onClick={() => void handleExport(plan.id)}
                     >
                       PDF/Excel
                     </button>
@@ -945,18 +950,18 @@ export function AdminDashboardPage() {
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Historie wird geladen...</p>
           ) : auditEntries.length ? (
             <ul className="mt-2 space-y-2 text-sm">
-              {auditEntries.map((entry) ***REMOVED*** (
+              {auditEntries.map((entry) => (
                 <li key={entry.id} className="surface-inset">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-medium text-slate-900 dark:text-slate-100">
-                      {(() ***REMOVED*** {
-                        if (entry.action ***REMOVED*** "month_upsert") return "Monat angelegt/aktualisiert";
-                        if (entry.action ***REMOVED*** "month_status_set") return "Monatstatus geändert";
-                        if (entry.action ***REMOVED*** "schedule_generate") return "Dienstplan generiert";
-                        if (entry.action ***REMOVED*** "limit_set") return "Limit gesetzt";
-                        if (entry.action ***REMOVED*** "user_delete") return "Benutzer gelöscht/anonymisiert";
-                        if (entry.action ***REMOVED*** "team_archive") return "Team archiviert";
-                        if (entry.action ***REMOVED*** "team_delete") return "Team gelöscht";
+                      {(() => {
+                        if (entry.action === "month_upsert") return "Monat angelegt/aktualisiert";
+                        if (entry.action === "month_status_set") return "Monatstatus geändert";
+                        if (entry.action === "schedule_generate") return "Dienstplan generiert";
+                        if (entry.action === "limit_set") return "Limit gesetzt";
+                        if (entry.action === "user_delete") return "Benutzer gelöscht/anonymisiert";
+                        if (entry.action === "team_archive") return "Team archiviert";
+                        if (entry.action === "team_delete") return "Team gelöscht";
                         return entry.action;
                       })()}
                     </span>
@@ -985,11 +990,11 @@ export function AdminDashboardPage() {
             <select
               className="select ml-2"
               value={shiftTeamFilter}
-              onChange={(e) ***REMOVED*** setShiftTeamFilter(e.target.value)}
-              disabled={isSuperuser}
+              onChange={(e) => setShiftTeamFilter(e.target.value)}
+              disabled={isTeamScopedSuperuser && teamSwitcherTeams.length < 2}
             >
-              {!isSuperuser ? <option value="all">Alle Teams</option> : null}
-              {teams.map((team) ***REMOVED*** (
+              {!isTeamScopedSuperuser ? <option value="all">Alle Teams</option> : null}
+              {(isTeamScopedSuperuser ? teamSwitcherTeams : teams).map((team) => (
                 <option key={team.id} value={team.id}>
                   {team.name}
                 </option>
@@ -1005,7 +1010,7 @@ export function AdminDashboardPage() {
                   className="input ml-2 min-w-[11rem]"
                   placeholder="z. B. Nachtschicht"
                   value={newShiftName}
-                  onChange={(e) ***REMOVED*** setNewShiftName(e.target.value)}
+                  onChange={(e) => setNewShiftName(e.target.value)}
                 />
               </label>
               <label>
@@ -1014,7 +1019,7 @@ export function AdminDashboardPage() {
                   className="input ml-2 w-[7.5rem]"
                   type="time"
                   value={newShiftStart}
-                  onChange={(e) ***REMOVED*** setNewShiftStart(e.target.value)}
+                  onChange={(e) => setNewShiftStart(e.target.value)}
                 />
               </label>
               <label>
@@ -1023,7 +1028,7 @@ export function AdminDashboardPage() {
                   className="input ml-2 w-[7.5rem]"
                   type="time"
                   value={newShiftEnd}
-                  onChange={(e) ***REMOVED*** setNewShiftEnd(e.target.value)}
+                  onChange={(e) => setNewShiftEnd(e.target.value)}
                 />
               </label>
               <label>
@@ -1032,10 +1037,10 @@ export function AdminDashboardPage() {
                   className="ml-2 h-9 w-12 cursor-pointer overflow-hidden rounded-lg border border-slate-200 align-middle"
                   type="color"
                   value={newShiftColor}
-                  onChange={(e) ***REMOVED*** setNewShiftColor(e.target.value)}
+                  onChange={(e) => setNewShiftColor(e.target.value)}
                 />
               </label>
-              <button className="btn-primary btn-sm" type="button" onClick={() ***REMOVED*** void createShiftType()}>
+              <button className="btn-primary btn-sm" type="button" onClick={() => void createShiftType()}>
                 Schicht anlegen
               </button>
             </div>
@@ -1045,9 +1050,9 @@ export function AdminDashboardPage() {
             <select
               className="select ml-2"
               value={shiftEditorPlanId ?? ""}
-              onChange={(e) ***REMOVED*** setShiftEditorPlanId(e.target.value || null)}
+              onChange={(e) => setShiftEditorPlanId(e.target.value || null)}
             >
-              {plans.map((plan) ***REMOVED*** (
+              {plans.map((plan) => (
                 <option key={plan.id} value={plan.id}>
                   {`${plan.month}.${plan.year} (${plan.status})`}
                 </option>
@@ -1055,7 +1060,7 @@ export function AdminDashboardPage() {
             </select>
           </label>
           <ul className="mt-3 space-y-2 text-sm">
-            {editableShiftTimes.map((item) ***REMOVED*** (
+            {editableShiftTimes.map((item) => (
               <li key={item.shiftTypeId} className="surface-inset">
                 <div className="mb-2 font-semibold text-slate-900 dark:text-slate-100">{item.name}</div>
                 <div className="flex flex-wrap items-end gap-2 text-slate-800 dark:text-slate-200">
@@ -1065,7 +1070,7 @@ export function AdminDashboardPage() {
                       className="input ml-2 w-[7.5rem]"
                       type="time"
                       value={item.start}
-                      onChange={(e) ***REMOVED*** updateEditableShiftTime(item.shiftTypeId, "start", e.target.value)}
+                      onChange={(e) => updateEditableShiftTime(item.shiftTypeId, "start", e.target.value)}
                     />
                   </label>
                   <label>
@@ -1074,13 +1079,13 @@ export function AdminDashboardPage() {
                       className="input ml-2 w-[7.5rem]"
                       type="time"
                       value={item.end}
-                      onChange={(e) ***REMOVED*** updateEditableShiftTime(item.shiftTypeId, "end", e.target.value)}
+                      onChange={(e) => updateEditableShiftTime(item.shiftTypeId, "end", e.target.value)}
                     />
                   </label>
-                  <button className="btn-primary btn-sm" type="button" onClick={() ***REMOVED*** void saveShiftTimeOverride(item)}>
+                  <button className="btn-primary btn-sm" type="button" onClick={() => void saveShiftTimeOverride(item)}>
                     Speichern
                   </button>
-                  <button className="btn-danger btn-sm" type="button" onClick={() ***REMOVED*** void deleteShiftType(item.shiftTypeId, item.name)}>
+                  <button className="btn-danger btn-sm" type="button" onClick={() => void deleteShiftType(item.shiftTypeId, item.name)}>
                     Löschen
                   </button>
                 </div>
@@ -1097,11 +1102,11 @@ export function AdminDashboardPage() {
             <select
               className="select ml-2"
               value={submissionTeamFilter}
-              onChange={(e) ***REMOVED*** setSubmissionTeamFilter(e.target.value)}
-              disabled={isSuperuser}
+              onChange={(e) => setSubmissionTeamFilter(e.target.value)}
+              disabled={isTeamScopedSuperuser && teamSwitcherTeams.length < 2}
             >
-              {!isSuperuser ? <option value="all">Alle Teams</option> : null}
-              {teams.map((team) ***REMOVED*** (
+              {!isTeamScopedSuperuser ? <option value="all">Alle Teams</option> : null}
+              {(isTeamScopedSuperuser ? teamSwitcherTeams : teams).map((team) => (
                 <option key={team.id} value={team.id}>
                   {team.name}
                 </option>
@@ -1109,7 +1114,7 @@ export function AdminDashboardPage() {
             </select>
           </label>
           <ul className="mt-2 space-y-2 text-sm">
-            {submissions.map((submission) ***REMOVED*** (
+            {submissions.map((submission) => (
               <li key={submission.employee_id} className="rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-2 text-slate-800 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-200">
                 {(submission.full_name ?? submission.employee_id)}: {submission.is_submitted ? "Eingereicht" : "Offen"}
               </li>
@@ -1126,13 +1131,13 @@ export function AdminDashboardPage() {
             Die Dienstplan-Generierung weist pro Kalendermonat höchstens so viele Schichten zu. Leeres Feld = Standard 31.
             {isSuperuser ? " Du pflegst nur Mitarbeiter deines Teams." : null}
           </p>
-          {planTeamFilter ***REMOVED*** "all" ? (
+          {planTeamFilter === "all" ? (
             <p className="mt-2 text-sm text-amber-800 dark:text-amber-200">
               Bitte oben bei Monatsplanung ein Team wählen, um Limits zu bearbeiten.
             </p>
           ) : (
             <ul className="mt-3 space-y-2 text-sm">
-              {limitsTeamEmployees.map((emp) ***REMOVED*** {
+              {limitsTeamEmployees.map((emp) => {
                 const stored = shiftLimitsByEmployee[emp.id];
                 const draft = limitDraftByEmployee[emp.id];
                 const inputValue =
@@ -1149,15 +1154,15 @@ export function AdminDashboardPage() {
                         max={366}
                         placeholder="31"
                         value={inputValue}
-                        onChange={(e) ***REMOVED***
-                          setLimitDraftByEmployee((prev) ***REMOVED*** ({ ...prev, [emp.id]: e.target.value }))
+                        onChange={(e) =>
+                          setLimitDraftByEmployee((prev) => ({ ...prev, [emp.id]: e.target.value }))
                         }
                       />
                     </label>
                     <button
                       type="button"
                       className="btn-primary btn-sm"
-                      onClick={() ***REMOVED*** void saveEmployeeShiftLimit(emp.id)}
+                      onClick={() => void saveEmployeeShiftLimit(emp.id)}
                     >
                       Speichern
                     </button>
@@ -1179,7 +1184,7 @@ export function AdminDashboardPage() {
             Bereinigt Chat-Nachrichten und Anhänge älter als 12 Monate.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button className="btn-secondary" type="button" onClick={() ***REMOVED*** void purgeChatRetention()}>
+            <button className="btn-secondary" type="button" onClick={() => void purgeChatRetention()}>
               Chat bereinigen (12 Monate)
             </button>
           </div>
@@ -1195,26 +1200,26 @@ export function AdminDashboardPage() {
                 className="input flex-1"
                 placeholder="Neues Team (z. B. Nord)"
                 value={newTeamName}
-                onChange={(e) ***REMOVED*** setNewTeamName(e.target.value)}
+                onChange={(e) => setNewTeamName(e.target.value)}
               />
-              <button className="btn-primary shrink-0" type="button" onClick={() ***REMOVED*** void createTeam()}>
+              <button className="btn-primary shrink-0" type="button" onClick={() => void createTeam()}>
                 Team anlegen
               </button>
             </div>
             <ul className="mt-4 space-y-2 text-sm">
-              {teams.map((team) ***REMOVED*** (
+              {teams.map((team) => (
                 <li key={team.id} className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 text-slate-800 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-200">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-medium text-slate-900 dark:text-slate-100">{team.name}</span>
                     <div className="flex flex-wrap items-center gap-2">
-                      <button className="btn-secondary btn-sm" type="button" onClick={() ***REMOVED*** void createTeamChatThread(team.id)}>
+                      <button className="btn-secondary btn-sm" type="button" onClick={() => void createTeamChatThread(team.id)}>
                         Teamchat anlegen
                       </button>
                       <button
                         className="btn-danger btn-sm"
                         type="button"
                         title="Löscht das Team, wenn keine Daten mehr zugeordnet sind; sonst wird es archiviert."
-                        onClick={() ***REMOVED*** void deleteTeam(team.id)}
+                        onClick={() => void deleteTeam(team.id)}
                       >
                         Löschen
                       </button>
@@ -1228,15 +1233,15 @@ export function AdminDashboardPage() {
 
           <div className="card p-5 md:p-6">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Benutzer verwalten</h2>
-            {(["admin", "superuser", "employee"] as UserRole[]).map((role) ***REMOVED*** {
-              const members = profiles.filter((profileItem) ***REMOVED*** profileItem.role ***REMOVED*** role);
+            {(["admin", "superuser", "employee"] as UserRole[]).map((role) => {
+              const members = profiles.filter((profileItem) => profileItem.role === role);
               const roleTitle =
-                role ***REMOVED*** "admin" ? "Admins" : role ***REMOVED*** "superuser" ? "Superuser" : "Mitarbeiter";
+                role === "admin" ? "Admins" : role === "superuser" ? "Superuser" : "Mitarbeiter";
               return (
                 <div key={role} className="mt-3">
                   <h3 className="mb-2 font-semibold text-slate-800 dark:text-slate-200">{roleTitle}</h3>
                   <ul className="space-y-2 text-sm">
-                    {members.map((member) ***REMOVED*** (
+                    {members.map((member) => (
                       <li key={member.id} className="surface-inset">
                         <div className="font-semibold text-slate-900 dark:text-slate-100">{member.full_name}</div>
                         <div className="text-xs text-slate-500 dark:text-slate-400">{member.email}</div>
@@ -1246,7 +1251,7 @@ export function AdminDashboardPage() {
                             <select
                               className="select ml-2"
                               value={member.role}
-                              onChange={(e) ***REMOVED*** void updateUserRole(member.id, e.target.value as UserRole)}
+                              onChange={(e) => void updateUserRole(member.id, e.target.value as UserRole)}
                             >
                               <option value="employee">Mitarbeiter</option>
                               <option value="admin">Admin</option>
@@ -1256,7 +1261,7 @@ export function AdminDashboardPage() {
                           <div className="w-full">
                             <span className="mb-1 block text-xs text-slate-600 dark:text-slate-400">Teams</span>
                             <div className="flex flex-wrap gap-2 max-w-md">
-                              {teamsForMembershipPicker().map((team) ***REMOVED*** (
+                              {teamsForMembershipPicker().map((team) => (
                                 <label
                                   key={team.id}
                                   className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/90 px-2 py-1.5 text-xs text-slate-800 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200"
@@ -1265,7 +1270,7 @@ export function AdminDashboardPage() {
                                     className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                                     type="checkbox"
                                     checked={(membershipsByUserId[member.id] ?? []).includes(team.id)}
-                                    onChange={(e) ***REMOVED*** toggleUserTeam(member.id, team.id, e.target.checked)}
+                                    onChange={(e) => toggleUserTeam(member.id, team.id, e.target.checked)}
                                   />
                                   {team.name}
                                 </label>
@@ -1276,7 +1281,7 @@ export function AdminDashboardPage() {
                             className="btn-danger btn-sm"
                             type="button"
                             title="Entfernt den Login und anonymisiert das Profil (historische Daten bleiben ohne Personenbezug)."
-                            onClick={() ***REMOVED*** void deleteUser(member.id)}
+                            onClick={() => void deleteUser(member.id)}
                           >
                             Löschen
                           </button>

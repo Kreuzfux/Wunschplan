@@ -44,7 +44,7 @@ export function EmployeeDashboardPage() {
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const days = useMemo(() ***REMOVED*** {
+  const days = useMemo(() => {
     if (!plan) return [];
     const first = startOfMonth(new Date(plan.year, plan.month - 1, 1));
     const last = endOfMonth(first);
@@ -53,17 +53,17 @@ export function EmployeeDashboardPage() {
     return result;
   }, [plan]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (!effectiveTeamId) return;
     supabase
       .from("shift_types")
       .select("*")
       .eq("team_id", effectiveTeamId)
       .order("sort_order")
-      .then(({ data }) ***REMOVED*** {
-        const baseShifts = ((data ?? []) as ShiftType[]).filter((shift) ***REMOVED*** shift.is_active !== false);
+      .then(({ data }) => {
+        const baseShifts = ((data ?? []) as ShiftType[]).filter((shift) => shift.is_active !== false);
         setShifts(
-          baseShifts.map((shift) ***REMOVED*** ({
+          baseShifts.map((shift) => ({
             id: shift.id,
             name: shift.name,
             defaultStart: shift.default_start_time,
@@ -75,17 +75,17 @@ export function EmployeeDashboardPage() {
       });
   }, [effectiveTeamId]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (!plan || !shifts.length) return;
     supabase
       .from("shift_type_overrides")
       .select("shift_type_id,override_start_time,override_end_time")
       .eq("monthly_plan_id", plan.id)
-      .then(({ data }) ***REMOVED*** {
+      .then(({ data }) => {
         const overrides = (data ?? []) as ShiftTypeOverrideRow[];
-        const overrideMap = new Map(overrides.map((item) ***REMOVED*** [item.shift_type_id, item]));
-        setShifts((prev) ***REMOVED***
-          prev.map((shift) ***REMOVED*** {
+        const overrideMap = new Map(overrides.map((item) => [item.shift_type_id, item]));
+        setShifts((prev) =>
+          prev.map((shift) => {
             const override = overrideMap.get(shift.id);
             return {
               ...shift,
@@ -97,7 +97,7 @@ export function EmployeeDashboardPage() {
       });
   }, [plan, shifts.length]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     setSelectedDates([]);
     setSelectedShiftTypeIds([]);
     setRemarks("");
@@ -105,7 +105,7 @@ export function EmployeeDashboardPage() {
     setErrorMessage(null);
   }, [plan?.id]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     async function loadAssignments() {
       if (!plan || !profile) return;
       if (plan.status !== "published") {
@@ -131,7 +131,7 @@ export function EmployeeDashboardPage() {
     void loadAssignments();
   }, [plan?.id, plan?.status, profile?.id]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (!plan || !profile || selectedDates.length !== 1) return;
     const selectedDate = selectedDates[0];
     supabase
@@ -140,14 +140,14 @@ export function EmployeeDashboardPage() {
       .eq("monthly_plan_id", plan.id)
       .eq("employee_id", profile.id)
       .eq("date", selectedDate)
-      .then(({ data }) ***REMOVED*** {
+      .then(({ data }) => {
         const rows = data ?? [];
         setRemarks(rows[0]?.remarks ?? "");
-        setSelectedShiftTypeIds(rows.map((row) ***REMOVED*** row.shift_type_id).filter(Boolean));
+        setSelectedShiftTypeIds(rows.map((row) => row.shift_type_id).filter(Boolean));
       });
   }, [plan, profile, selectedDates]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (selectedDates.length > 1) {
       setRemarks("");
       setSelectedShiftTypeIds([]);
@@ -170,7 +170,7 @@ export function EmployeeDashboardPage() {
       }
 
       const { error: insertError } = await supabase.from("shift_wishes").insert(
-        selectedShiftTypeIds.map((shiftTypeId) ***REMOVED*** ({
+        selectedShiftTypeIds.map((shiftTypeId) => ({
           monthly_plan_id: plan.id,
           employee_id: profile.id,
           date: selectedDate,
@@ -203,18 +203,18 @@ export function EmployeeDashboardPage() {
     }
 
     setSavedMessage(`Wunsch für ${selectedDates.length} Tag(e) gespeichert.`);
-    setTimeout(() ***REMOVED*** setSavedMessage(null), 1800);
+    setTimeout(() => setSavedMessage(null), 1800);
   }
 
   function toggleShiftSelection(shiftTypeId: string) {
-    setSelectedShiftTypeIds((prev) ***REMOVED***
-      prev.includes(shiftTypeId) ? prev.filter((id) ***REMOVED*** id !== shiftTypeId) : [...prev, shiftTypeId],
+    setSelectedShiftTypeIds((prev) =>
+      prev.includes(shiftTypeId) ? prev.filter((id) => id !== shiftTypeId) : [...prev, shiftTypeId],
     );
   }
 
   function toggleDateSelection(dateKey: string) {
-    setSelectedDates((prev) ***REMOVED***
-      prev.includes(dateKey) ? prev.filter((item) ***REMOVED*** item !== dateKey) : [...prev, dateKey],
+    setSelectedDates((prev) =>
+      prev.includes(dateKey) ? prev.filter((item) => item !== dateKey) : [...prev, dateKey],
     );
   }
 
@@ -269,7 +269,7 @@ export function EmployeeDashboardPage() {
               Zum Adminbereich
             </Link>
           ) : null}
-          <button className="btn-secondary" type="button" onClick={() ***REMOVED*** void signOut()}>
+          <button className="btn-secondary" type="button" onClick={() => void signOut()}>
             Ausloggen
           </button>
         </div>
@@ -294,9 +294,9 @@ export function EmployeeDashboardPage() {
                 <select
                   className="select min-w-[12rem]"
                   value={selectedPlanId ?? ""}
-                  onChange={(e) ***REMOVED*** setSelectedPlanId(e.target.value || null)}
+                  onChange={(e) => setSelectedPlanId(e.target.value || null)}
                 >
-                  {plans.map((p) ***REMOVED*** (
+                  {plans.map((p) => (
                     <option key={p.id} value={p.id}>
                       {format(new Date(p.year, p.month - 1, 1), "MMMM yyyy", { locale: de })} ({p.status})
                     </option>
@@ -305,9 +305,9 @@ export function EmployeeDashboardPage() {
               </label>
             </div>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Mitarbeiter: {profile?.full_name}</p>
-            {plan.status ***REMOVED*** "open" ? (
+            {plan.status === "open" ? (
               <p className="text-sm text-slate-600 dark:text-slate-400">Tippe einen oder mehrere Tage an, um Schicht und Bemerkung zu erfassen.</p>
-            ) : plan.status ***REMOVED*** "published" ? (
+            ) : plan.status === "published" ? (
               <p className="text-sm text-slate-600 dark:text-slate-400">Der Monat ist veröffentlicht. Unten siehst du deinen Dienstplan.</p>
             ) : (
               <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -317,9 +317,9 @@ export function EmployeeDashboardPage() {
             )}
           </div>
 
-          {plan.status ***REMOVED*** "open" ? (
+          {plan.status === "open" ? (
             <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-soft dark:border-slate-700/80 dark:bg-slate-900/50 dark:shadow-soft-dark sm:grid-cols-4 md:grid-cols-7">
-              {days.map((day) ***REMOVED*** {
+              {days.map((day) => {
                 const key = format(day, "yyyy-MM-dd");
                 const active = selectedDates.includes(key);
                 return (
@@ -331,7 +331,7 @@ export function EmployeeDashboardPage() {
                         ? "border-brand-500 bg-brand-50 text-brand-950 shadow-sm dark:border-brand-500 dark:bg-brand-900 dark:text-white dark:shadow-md"
                         : "border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-700"
                     }`}
-                    onClick={() ***REMOVED*** toggleDateSelection(key)}
+                    onClick={() => toggleDateSelection(key)}
                   >
                     <div className="font-semibold text-inherit">{format(day, "dd.MM.")}</div>
                     <div
@@ -347,14 +347,14 @@ export function EmployeeDashboardPage() {
                 );
               })}
             </div>
-          ) : plan.status ***REMOVED*** "published" ? (
+          ) : plan.status === "published" ? (
             <div className="card p-5">
               <h3 className="font-semibold text-slate-900 dark:text-slate-50">Dein Dienstplan</h3>
               {assignmentsLoading ? (
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Dienstplan wird geladen...</p>
               ) : assignments.length ? (
                 <ul className="mt-3 space-y-2 text-sm">
-                  {assignments.map((a) ***REMOVED*** (
+                  {assignments.map((a) => (
                     <li
                       key={a.id}
                       className="flex items-center justify-between rounded-xl border border-slate-200/90 bg-slate-50/80 px-3 py-2.5 dark:border-slate-600/80 dark:bg-slate-800/60"
@@ -382,14 +382,14 @@ export function EmployeeDashboardPage() {
             </div>
           )}
 
-          {plan.status ***REMOVED*** "open" && selectedDates.length ? (
+          {plan.status === "open" && selectedDates.length ? (
             <div className="card p-5">
               <h3 className="font-semibold text-slate-900 dark:text-slate-50">
-                Eintrag für {selectedDates.length ***REMOVED*** 1 ? format(new Date(selectedDates[0]), "PPPP", { locale: de }) : `${selectedDates.length} ausgewählte Tage`}
+                Eintrag für {selectedDates.length === 1 ? format(new Date(selectedDates[0]), "PPPP", { locale: de }) : `${selectedDates.length} ausgewählte Tage`}
               </h3>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Waehle die Schichtzeit, die der Admin freigegeben hat.</p>
               <div className="mt-3 space-y-2">
-                {shifts.map((shift) ***REMOVED*** (
+                {shifts.map((shift) => (
                   <label
                     key={shift.id}
                     className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-sm transition-colors hover:border-slate-300 dark:border-slate-600 dark:bg-slate-800/60 dark:hover:border-slate-500"
@@ -399,7 +399,7 @@ export function EmployeeDashboardPage() {
                         className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 dark:border-slate-500"
                         type="checkbox"
                         checked={selectedShiftTypeIds.includes(shift.id)}
-                        onChange={() ***REMOVED*** toggleShiftSelection(shift.id)}
+                        onChange={() => toggleShiftSelection(shift.id)}
                       />
                       <span className="font-medium text-slate-800 dark:text-slate-100">{shift.name}</span>
                     </span>
@@ -415,21 +415,21 @@ export function EmployeeDashboardPage() {
                 rows={4}
                 placeholder="z. B. nur mit Führerschein"
                 value={remarks}
-                onChange={(e) ***REMOVED*** setRemarks(e.target.value)}
+                onChange={(e) => setRemarks(e.target.value)}
               />
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   className="btn-primary"
                   type="button"
                   disabled={!selectedShiftTypeIds.length}
-                  onClick={() ***REMOVED*** void saveWish()}
+                  onClick={() => void saveWish()}
                 >
                   Wunsch speichern
                 </button>
-                <button className="btn-secondary" type="button" onClick={() ***REMOVED*** setSelectedDates([])}>
+                <button className="btn-secondary" type="button" onClick={() => setSelectedDates([])}>
                   Auswahl leeren
                 </button>
-                <button className="btn-secondary" type="button" onClick={() ***REMOVED*** void submitPlan()}>
+                <button className="btn-secondary" type="button" onClick={() => void submitPlan()}>
                   Wunschplan einreichen
                 </button>
               </div>

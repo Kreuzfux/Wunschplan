@@ -5,7 +5,7 @@ export async function exportScheduleExcel(title: string, rows: Array<[string, st
   const sheet = workbook.addWorksheet("Monatsübersicht");
   sheet.addRow([title]);
   sheet.addRow(["Datum", "Schicht", "Mitarbeiter"]);
-  rows.forEach((row) ***REMOVED*** sheet.addRow(row));
+  rows.forEach((row) => sheet.addRow(row));
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], {

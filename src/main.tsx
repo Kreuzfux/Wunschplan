@@ -11,23 +11,23 @@ const buildId = import.meta.env.VITE_APP_BUILD_ID ?? "dev";
 async function clearIndexedDbData() {
   if (!("indexedDB" in window)) return;
   const databasesApi = indexedDB as IDBFactory & {
-    databases?: () ***REMOVED*** Promise<Array<{ name?: string }>>;
+    databases?: () => Promise<Array<{ name?: string }>>;
   };
 
-  if (typeof databasesApi.databases ***REMOVED*** "function") {
+  if (typeof databasesApi.databases === "function") {
     try {
       const dbs = await databasesApi.databases();
       await Promise.all(
         dbs
-          .map((db) ***REMOVED*** db.name)
-          .filter((name): name is string ***REMOVED*** Boolean(name))
+          .map((db) => db.name)
+          .filter((name): name is string => Boolean(name))
           .map(
-            (name) ***REMOVED***
-              new Promise<void>((resolve) ***REMOVED*** {
+            (name) =>
+              new Promise<void>((resolve) => {
                 const request = indexedDB.deleteDatabase(name);
-                request.onsuccess = () ***REMOVED*** resolve();
-                request.onerror = () ***REMOVED*** resolve();
-                request.onblocked = () ***REMOVED*** resolve();
+                request.onsuccess = () => resolve();
+                request.onerror = () => resolve();
+                request.onblocked = () => resolve();
               }),
           ),
       );
@@ -37,11 +37,11 @@ async function clearIndexedDbData() {
     }
   }
 
-  await new Promise<void>((resolve) ***REMOVED*** {
+  await new Promise<void>((resolve) => {
     const request = indexedDB.deleteDatabase("keyval-store");
-    request.onsuccess = () ***REMOVED*** resolve();
-    request.onerror = () ***REMOVED*** resolve();
-    request.onblocked = () ***REMOVED*** resolve();
+    request.onsuccess = () => resolve();
+    request.onerror = () => resolve();
+    request.onblocked = () => resolve();
   });
 }
 
@@ -49,7 +49,7 @@ async function clearBrowserCaches() {
   if (!("caches" in window)) return;
   try {
     const keys = await caches.keys();
-    await Promise.all(keys.map((key) ***REMOVED*** caches.delete(key)));
+    await Promise.all(keys.map((key) => caches.delete(key)));
   } catch {
     // Ignore cache cleanup errors.
   }
@@ -57,7 +57,7 @@ async function clearBrowserCaches() {
 
 async function resetClientStateOnNewBuild() {
   const previousBuildId = localStorage.getItem(BUILD_STORAGE_KEY);
-  if (previousBuildId ***REMOVED*** buildId) return false;
+  if (previousBuildId === buildId) return false;
 
   await clearIndexedDbData();
   await clearBrowserCaches();

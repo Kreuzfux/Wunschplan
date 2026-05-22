@@ -62,11 +62,11 @@ export function RegisterPage() {
         </div>
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Vollständiger Name</span>
-          <input className="input" value={fullName} onChange={(e) ***REMOVED*** setFullName(e.target.value)} required autoComplete="name" />
+          <input className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} required autoComplete="name" />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">E-Mail</span>
-          <input className="input" type="email" value={email} onChange={(e) ***REMOVED*** setEmail(e.target.value)} required autoComplete="email" />
+          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Passwort</span>
@@ -74,7 +74,7 @@ export function RegisterPage() {
             className="input"
             type="password"
             value={password}
-            onChange={(e) ***REMOVED*** setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             minLength={6}
             required
             autoComplete="new-password"
@@ -85,7 +85,7 @@ export function RegisterPage() {
             className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 dark:border-slate-500"
             type="checkbox"
             checked={hasDriversLicense}
-            onChange={(e) ***REMOVED*** setHasDriversLicense(e.target.checked)}
+            onChange={(e) => setHasDriversLicense(e.target.checked)}
           />
           <span>Führerschein vorhanden</span>
         </label>

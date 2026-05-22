@@ -9,8 +9,8 @@
           var k = "wunschplan.theme";
           var v = localStorage.getItem(k);
           var dark;
-          if (v ***REMOVED*** "dark") dark = true;
-          else if (v ***REMOVED*** "light") dark = false;
+          if (v === "dark") dark = true;
+          else if (v === "light") dark = false;
           else dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
           document.documentElement.classList.toggle("dark", dark);
         } catch (e) {}

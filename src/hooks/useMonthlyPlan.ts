@@ -7,7 +7,7 @@ export function useMonthlyPlans(teamId: string | null | undefined) {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     async function load() {
       if (!teamId) {
         setPlans([]);
@@ -30,14 +30,14 @@ export function useMonthlyPlans(teamId: string | null | undefined) {
       }
       const nextPlans = (data ?? []) as MonthlyPlan[];
       setPlans(nextPlans);
-      setSelectedPlanId((prev) ***REMOVED*** prev ?? nextPlans[0]?.id ?? null);
+      setSelectedPlanId((prev) => prev ?? nextPlans[0]?.id ?? null);
       setLoading(false);
     }
     void load();
   }, [teamId]);
 
   const selectedPlan = useMemo(
-    () ***REMOVED*** plans.find((p) ***REMOVED*** p.id ***REMOVED*** selectedPlanId) ?? null,
+    () => plans.find((p) => p.id === selectedPlanId) ?? null,
     [plans, selectedPlanId],
   );
 

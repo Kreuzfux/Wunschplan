@@ -17,9 +17,9 @@ function buildCorsHeaders(origin: string | null) {
   };
 }
 
-serve(async (req) ***REMOVED*** {
+serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req.headers.get("Origin"));
-  if (req.method ***REMOVED*** "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -73,13 +73,13 @@ serve(async (req) ***REMOVED*** {
       .lt("created_at", cutoffIso)
       .limit(5000);
 
-    const storagePaths = (oldAtt ?? []).map((a: any) ***REMOVED*** a.storage_path);
+    const storagePaths = (oldAtt ?? []).map((a: any) => a.storage_path);
     if (storagePaths.length) {
       // Best-effort: remove from storage, then delete rows.
       await adminClient.storage.from("chat-attachments").remove(storagePaths);
       await adminClient.from("chat_attachments").delete().in(
         "id",
-        (oldAtt ?? []).map((a: any) ***REMOVED*** a.id),
+        (oldAtt ?? []).map((a: any) => a.id),
       );
     }
 

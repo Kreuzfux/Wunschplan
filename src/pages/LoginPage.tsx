@@ -28,14 +28,14 @@ export function LoginPage() {
   const [resetMessage, setResetMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (location.search.includes("reset=1")) {
       setResetMessage("Lokale Daten wurden erfolgreich zurückgesetzt.");
       navigate("/login", { replace: true });
     }
   }, [location.search, navigate]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (!authLoading && session) {
       navigate("/", { replace: true });
     }
@@ -76,7 +76,7 @@ export function LoginPage() {
       // Never let remote sign-out block local reset/navigation.
       await Promise.race([
         supabase.auth.signOut({ scope: "local" }),
-        new Promise<void>((resolve) ***REMOVED*** {
+        new Promise<void>((resolve) => {
           setTimeout(resolve, 1500);
         }),
       ]);
@@ -87,7 +87,7 @@ export function LoginPage() {
     localStorage.clear();
     sessionStorage.clear();
 
-    document.cookie.split(";").forEach((cookie) ***REMOVED*** {
+    document.cookie.split(";").forEach((cookie) => {
       const eqPos = cookie.indexOf("=");
       const name = eqPos > -1 ? cookie.slice(0, eqPos).trim() : cookie.trim();
       if (!name) return;
@@ -96,16 +96,16 @@ export function LoginPage() {
     });
 
     setResetMessage("Lokale Daten werden zurückgesetzt...");
-    setTimeout(() ***REMOVED*** {
+    setTimeout(() => {
       const basePath = window.location.pathname.includes("/Wunschplan") ? "/Wunschplan" : "";
       window.location.replace(`${basePath}/#/login?reset=1`);
     }, 450);
   }
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     // Emergency-only: hidden shortcut to reset local data.
     // Ctrl+Shift+Alt+R on Windows/Linux, Cmd+Shift+Alt+R on macOS.
-    const onKeyDown = (e: KeyboardEvent) ***REMOVED*** {
+    const onKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toLowerCase().includes("mac");
       const mainModifierOk = isMac ? e.metaKey : e.ctrlKey;
       if (!mainModifierOk || !e.shiftKey || !e.altKey) return;
@@ -114,7 +114,7 @@ export function LoginPage() {
       void handleResetLocalData();
     };
     window.addEventListener("keydown", onKeyDown);
-    return () ***REMOVED*** window.removeEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   return (
@@ -130,7 +130,7 @@ export function LoginPage() {
         </div>
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">E-Mail</span>
-          <input className="input" type="email" value={email} onChange={(e) ***REMOVED*** setEmail(e.target.value)} required autoComplete="email" />
+          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">Passwort</span>
@@ -138,7 +138,7 @@ export function LoginPage() {
             className="input"
             type="password"
             value={password}
-            onChange={(e) ***REMOVED*** setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
           />

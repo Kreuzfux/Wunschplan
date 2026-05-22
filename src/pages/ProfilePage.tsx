@@ -9,9 +9,9 @@ const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 function getFileExt(file: File) {
-  if (file.type ***REMOVED*** "image/jpeg") return "jpg";
-  if (file.type ***REMOVED*** "image/png") return "png";
-  if (file.type ***REMOVED*** "image/webp") return "webp";
+  if (file.type === "image/jpeg") return "jpg";
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/webp") return "webp";
   const parts = file.name.split(".");
   return (parts[parts.length - 1] || "png").toLowerCase();
 }
@@ -28,16 +28,16 @@ export function ProfilePage() {
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [signedAvatarUrl, setSignedAvatarUrl] = useState<string | null>(null);
 
-  const isEmployee = profile?.role ***REMOVED*** "employee";
+  const isEmployee = profile?.role === "employee";
 
-  const teamsForLimits = useMemo(() ***REMOVED*** teamSwitcherTeams, [teamSwitcherTeams]);
+  const teamsForLimits = useMemo(() => teamSwitcherTeams, [teamSwitcherTeams]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     setFullName(profile?.full_name ?? "");
     setEmail(profile?.email ?? "");
   }, [profile?.email, profile?.full_name]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     async function loadLimits() {
       if (!profile?.id || !isEmployee) {
         setLimitsByTeamId({});
@@ -58,19 +58,19 @@ export function ProfilePage() {
     void loadLimits();
   }, [profile?.id, isEmployee]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (!avatarFile) {
       setAvatarPreviewUrl(null);
       return;
     }
     const url = URL.createObjectURL(avatarFile);
     setAvatarPreviewUrl(url);
-    return () ***REMOVED*** URL.revokeObjectURL(url);
+    return () => URL.revokeObjectURL(url);
   }, [avatarFile]);
 
-  const avatarPathOrUrl = useMemo(() ***REMOVED*** profile?.avatar_url ?? null, [profile?.avatar_url]);
+  const avatarPathOrUrl = useMemo(() => profile?.avatar_url ?? null, [profile?.avatar_url]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     async function loadSignedAvatar() {
       if (!avatarPathOrUrl) {
         setSignedAvatarUrl(null);
@@ -96,7 +96,7 @@ export function ProfilePage() {
     const rows: { employee_id: string; team_id: string; max_shifts_per_month: number }[] = [];
     for (const t of teamsForLimits) {
       const raw = (limitsByTeamId[t.id] ?? "31").trim();
-      const n = raw ***REMOVED*** "" ? 31 : Number.parseInt(raw, 10);
+      const n = raw === "" ? 31 : Number.parseInt(raw, 10);
       if (!Number.isFinite(n) || n < 0 || n > 366) {
         setNotice(`Max. Schichten für „${t.name}“: bitte Zahl zwischen 0 und 366 (leer = 31).`);
         return false;
@@ -235,7 +235,7 @@ export function ProfilePage() {
             <input
               className="input"
               value={fullName}
-              onChange={(e) ***REMOVED*** setFullName(e.target.value)}
+              onChange={(e) => setFullName(e.target.value)}
               disabled={busy}
             />
           </label>
@@ -244,12 +244,12 @@ export function ProfilePage() {
             <input
               className="input"
               value={email}
-              onChange={(e) ***REMOVED*** setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               disabled={busy}
               autoComplete="email"
             />
           </label>
-          <button className="btn-primary" type="button" disabled={busy} onClick={() ***REMOVED*** void saveProfile()}>
+          <button className="btn-primary" type="button" disabled={busy} onClick={() => void saveProfile()}>
             Speichern
           </button>
         </div>
@@ -266,7 +266,7 @@ export function ProfilePage() {
             <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">Du bist aktuell keinem Team zugeordnet.</p>
           ) : (
             <div className="mt-4 space-y-4 text-sm">
-              {teamsForLimits.map((t) ***REMOVED*** (
+              {teamsForLimits.map((t) => (
                 <label key={t.id} className="block">
                   <span className="mb-1.5 block font-medium text-slate-700 dark:text-slate-300">Max. Schichten / Monat – {t.name}</span>
                   <input
@@ -275,8 +275,8 @@ export function ProfilePage() {
                     min={0}
                     max={366}
                     value={limitsByTeamId[t.id] ?? "31"}
-                    onChange={(e) ***REMOVED***
-                      setLimitsByTeamId((prev) ***REMOVED*** ({
+                    onChange={(e) =>
+                      setLimitsByTeamId((prev) => ({
                         ...prev,
                         [t.id]: e.target.value,
                       }))
@@ -306,14 +306,14 @@ export function ProfilePage() {
               type="file"
               accept="image/jpeg,image/png,image/webp"
               disabled={busy}
-              onChange={(e) ***REMOVED*** setAvatarFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
             />
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
                 className="btn-secondary btn-sm"
                 type="button"
                 disabled={busy || !avatarFile}
-                onClick={() ***REMOVED*** void uploadAvatar()}
+                onClick={() => void uploadAvatar()}
               >
                 Hochladen
               </button>

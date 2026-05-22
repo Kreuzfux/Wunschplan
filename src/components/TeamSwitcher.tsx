@@ -11,9 +11,9 @@ export function TeamSwitcher() {
       <select
         className="select max-w-[16rem] text-sm"
         value={effectiveTeamId ?? ""}
-        onChange={(e) ***REMOVED*** void setActiveTeam(e.target.value)}
+        onChange={(e) => void setActiveTeam(e.target.value)}
       >
-        {teamSwitcherTeams.map((t) ***REMOVED*** (
+        {teamSwitcherTeams.map((t) => (
           <option key={t.id} value={t.id}>
             {t.name}
           </option>

@@ -37,9 +37,9 @@ function dedupeWishesByEmployee(wishes: WishRow[]): WishRow[] {
   return Array.from(map.values());
 }
 
-serve(async (req) ***REMOVED*** {
+serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req.headers.get("Origin"));
-  if (req.method ***REMOVED*** "OPTIONS") {
+  if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
@@ -93,10 +93,10 @@ serve(async (req) ***REMOVED*** {
     }
 
     const canGenerate =
-      profile?.role ***REMOVED*** "admin" ||
-      (profile?.role ***REMOVED*** "superuser" && profile.team_id ***REMOVED*** plan.team_id) ||
-      authData.user.id ***REMOVED*** ADMIN_USER_ID ||
-      email ***REMOVED*** ADMIN_EMAIL;
+      profile?.role === "admin" ||
+      (profile?.role === "superuser" && profile.team_id === plan.team_id) ||
+      authData.user.id === ADMIN_USER_ID ||
+      email === ADMIN_EMAIL;
     if (!canGenerate) {
       return new Response(JSON.stringify({ error: "Nicht berechtigt für die Generierung dieses Teams." }), {
         status: 403,
@@ -105,7 +105,7 @@ serve(async (req) ***REMOVED*** {
     }
 
     const { data: teamProfiles } = await adminClient.from("profiles").select("id").eq("team_id", plan.team_id);
-    const teamMemberIds = new Set((teamProfiles ?? []).map((p: { id: string }) ***REMOVED*** p.id));
+    const teamMemberIds = new Set((teamProfiles ?? []).map((p: { id: string }) => p.id));
 
     const { data: wishes } = await adminClient
       .from("shift_wishes")
@@ -113,9 +113,9 @@ serve(async (req) ***REMOVED*** {
       .eq("monthly_plan_id", monthly_plan_id)
       .in("wish_type", ["available", "custom_time"]);
 
-    const wishesInTeam = (wishes ?? []).filter((w: WishRow) ***REMOVED*** teamMemberIds.has(w.employee_id));
+    const wishesInTeam = (wishes ?? []).filter((w: WishRow) => teamMemberIds.has(w.employee_id));
 
-    const wishEmployeeIds = [...new Set(wishesInTeam.map((w: WishRow) ***REMOVED*** w.employee_id))];
+    const wishEmployeeIds = [...new Set(wishesInTeam.map((w: WishRow) => w.employee_id))];
     const limitMap = new Map<string, number>();
 
     if (wishEmployeeIds.length > 0) {
@@ -129,7 +129,7 @@ serve(async (req) ***REMOVED*** {
       }
     }
 
-    const maxFor = (employeeId: string) ***REMOVED*** limitMap.get(employeeId) ?? DEFAULT_MAX_SHIFTS_PER_MONTH;
+    const maxFor = (employeeId: string) => limitMap.get(employeeId) ?? DEFAULT_MAX_SHIFTS_PER_MONTH;
 
     await adminClient.from("schedule_assignments").delete().eq("monthly_plan_id", monthly_plan_id);
 
@@ -141,7 +141,7 @@ serve(async (req) ***REMOVED*** {
       grouped.set(key, list);
     }
 
-    const sortedKeys = Array.from(grouped.keys()).sort((a, b) ***REMOVED*** a.localeCompare(b));
+    const sortedKeys = Array.from(grouped.keys()).sort((a, b) => a.localeCompare(b));
 
     const assignmentCount = new Map<string, number>();
     const inserts: Record<string, unknown>[] = [];
@@ -152,7 +152,7 @@ serve(async (req) ***REMOVED*** {
     for (const key of sortedKeys) {
       const rawList = grouped.get(key)!;
       const candidates = dedupeWishesByEmployee(rawList);
-      const sortedFull = [...candidates].sort((a, b) ***REMOVED*** {
+      const sortedFull = [...candidates].sort((a, b) => {
         const ca = assignmentCount.get(a.employee_id) ?? 0;
         const cb = assignmentCount.get(b.employee_id) ?? 0;
         if (ca !== cb) return ca - cb;
@@ -182,7 +182,7 @@ serve(async (req) ***REMOVED*** {
           monthly_plan_id,
           employee_id: candidate.employee_id,
           date,
-          shift_type_id: shiftTypeId ***REMOVED*** "custom" ? null : shiftTypeId,
+          shift_type_id: shiftTypeId === "custom" ? null : shiftTypeId,
           start_time: candidate.custom_start_time ?? "10:00",
           end_time: candidate.custom_end_time ?? "15:00",
         });

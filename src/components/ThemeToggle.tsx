@@ -9,7 +9,7 @@ export function ThemeToggle() {
       <select
         className="select max-w-[9rem] py-1.5 text-xs"
         value={preference}
-        onChange={(e) ***REMOVED*** setPreference(e.target.value as "light" | "dark" | "system")}
+        onChange={(e) => setPreference(e.target.value as "light" | "dark" | "system")}
         aria-label="Farbschema"
       >
         <option value="system">Automatisch</option>

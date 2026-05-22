@@ -16,8 +16,8 @@ interface AuthContextValue {
   effectiveTeamId: string | null;
   /** Teams der aktuellen Person (für Umschalter). */
   teamSwitcherTeams: TeamOption[];
-  setActiveTeam: (teamId: string) ***REMOVED*** Promise<void>;
-  signOut: () ***REMOVED*** Promise<void>;
+  setActiveTeam: (teamId: string) => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -27,9 +27,9 @@ const SUPABASE_PROJECT_REF = "qfmffiybblqrejilwsng";
 
 function clearSupabaseAuthStorage() {
   const authKeyParts = ["supabase.auth.token", SUPABASE_PROJECT_REF, "sb-"];
-  const clearFromStorage = (storage: Storage) ***REMOVED*** {
-    Object.keys(storage).forEach((key) ***REMOVED*** {
-      if (authKeyParts.some((part) ***REMOVED*** key.includes(part))) {
+  const clearFromStorage = (storage: Storage) => {
+    Object.keys(storage).forEach((key) => {
+      if (authKeyParts.some((part) => key.includes(part))) {
         storage.removeItem(key);
       }
     });
@@ -49,7 +49,7 @@ function buildFallbackProfile(session: Session): Profile {
     email,
     full_name: fullName,
     role:
-      session.user.id ***REMOVED*** ADMIN_USER_ID || email.toLowerCase() ***REMOVED*** ADMIN_EMAIL
+      session.user.id === ADMIN_USER_ID || email.toLowerCase() === ADMIN_EMAIL
         ? "admin"
         : "employee",
     team_id: null,
@@ -65,13 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [teamSwitcherTeams, setTeamSwitcherTeams] = useState<TeamOption[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadTeamSwitcherTeams = useCallback(async (userId: string) ***REMOVED*** {
+  const loadTeamSwitcherTeams = useCallback(async (userId: string) => {
     const { data: mems, error } = await supabase.from("team_memberships").select("team_id").eq("user_id", userId);
     if (error || !mems?.length) {
       setTeamSwitcherTeams([]);
       return;
     }
-    const ids = Array.from(new Set(mems.map((m: { team_id: string }) ***REMOVED*** m.team_id)));
+    const ids = Array.from(new Set(mems.map((m: { team_id: string }) => m.team_id)));
     const { data: teamRows } = await supabase
       .from("teams")
       .select("id,name")
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setActiveTeam = useCallback(
-    async (teamId: string) ***REMOVED*** {
+    async (teamId: string) => {
       if (!session?.user.id) return;
       const { error } = await supabase.from("profiles").update({ active_team_id: teamId }).eq("id", session.user.id);
       if (error) return;
@@ -99,12 +99,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: profileRow } = await supabase.from("profiles").select("email").eq("id", userId).maybeSingle();
     const currentProfileEmail = String((profileRow as any)?.email ?? "").trim();
     if (!currentProfileEmail) return;
-    if (currentProfileEmail.toLowerCase() ***REMOVED*** normalizedAuthEmail.toLowerCase()) return;
+    if (currentProfileEmail.toLowerCase() === normalizedAuthEmail.toLowerCase()) return;
     // Best-effort sync, ignore errors (RLS may block in some edge cases).
     await supabase.from("profiles").update({ email: normalizedAuthEmail }).eq("id", userId);
   }
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     async function initializeAuth() {
       try {
         const {
@@ -155,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     void initializeAuth();
 
-    const { data } = supabase.auth.onAuthStateChange(async (_, newSession) ***REMOVED*** {
+    const { data } = supabase.auth.onAuthStateChange(async (_, newSession) => {
       setSession(newSession);
       if (newSession?.user.id) {
         await ensureProfileEmailMatchesAuth(newSession.user.id, newSession.user.email);
@@ -173,23 +173,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () ***REMOVED*** data.subscription.unsubscribe();
+    return () => data.subscription.unsubscribe();
   }, []);
 
-  const effectiveTeamId = useMemo(() ***REMOVED*** {
+  const effectiveTeamId = useMemo(() => {
     if (!profile) return null;
     return profile.active_team_id ?? profile.team_id ?? null;
   }, [profile?.active_team_id, profile?.team_id, profile]);
 
   const value = useMemo<AuthContextValue>(
-    () ***REMOVED*** ({
+    () => ({
       session,
       profile,
       loading,
       effectiveTeamId,
       teamSwitcherTeams,
       setActiveTeam,
-      signOut: async () ***REMOVED*** {
+      signOut: async () => {
         await supabase.auth.signOut();
       },
     }),

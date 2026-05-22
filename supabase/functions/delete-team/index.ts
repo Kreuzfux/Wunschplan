@@ -17,9 +17,9 @@ function buildCorsHeaders(origin: string | null) {
   };
 }
 
-serve(async (req) ***REMOVED*** {
+serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req.headers.get("Origin"));
-  if (req.method ***REMOVED*** "OPTIONS") {
+  if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
@@ -73,7 +73,7 @@ serve(async (req) ***REMOVED*** {
       });
     }
 
-    const body = await req.json().catch(() ***REMOVED*** ({}));
+    const body = await req.json().catch(() => ({}));
     const teamId = String((body as any).team_id ?? "");
     if (!teamId) {
       return new Response(JSON.stringify({ error: "team_id fehlt." }), {

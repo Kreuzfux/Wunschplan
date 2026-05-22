@@ -32,10 +32,10 @@ function getInitials(name: string | null | undefined) {
   if (!name) return "?";
   const parts = name
     .split(" ")
-    .map((p) ***REMOVED*** p.trim())
+    .map((p) => p.trim())
     .filter(Boolean);
   if (!parts.length) return "?";
-  if (parts.length ***REMOVED*** 1) return parts[0].slice(0, 1).toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
   return `${parts[0].slice(0, 1)}${parts[parts.length - 1].slice(0, 1)}`.toUpperCase();
 }
 
@@ -62,16 +62,16 @@ export function ChatPage() {
   const planningTarget = profile && ["admin", "superuser"].includes(profile.role) ? "/admin" : "/dashboard";
   const planningLabel = profile && ["admin", "superuser"].includes(profile.role) ? "Zur Admin-Planung" : "Zur Planung";
 
-  const canSend = useMemo(() ***REMOVED*** {
+  const canSend = useMemo(() => {
     if (!activeThreadId) return false;
     return Boolean(newMessage.trim() || uploadFile);
   }, [activeThreadId, newMessage, uploadFile]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, activeThreadId]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     async function loadTeamThread() {
       if (!effectiveTeamId) return;
       // Ensure team thread exists. Admin can create; employees rely on existing row.
@@ -86,7 +86,7 @@ export function ChatPage() {
     loadTeamThread();
   }, [effectiveTeamId]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     setMessages([]);
     setAttachments(new Map());
     setProfilesById(new Map());
@@ -95,7 +95,7 @@ export function ChatPage() {
     setError(null);
   }, [activeThreadId]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     let isCancelled = false;
     async function loadThreadData() {
       if (!activeThreadId) return;
@@ -113,7 +113,7 @@ export function ChatPage() {
       const msgs = (msgData ?? []) as ChatMessage[];
       if (!isCancelled) setMessages(msgs);
 
-      const senderIds = Array.from(new Set(msgs.map((m) ***REMOVED*** m.sender_id)));
+      const senderIds = Array.from(new Set(msgs.map((m) => m.sender_id)));
       if (senderIds.length) {
         const { data: pData } = await supabase.from("profiles").select("id,email,full_name,role,team_id,has_drivers_license,is_active,avatar_url").in("id", senderIds);
         const map = new Map<string, Profile>();
@@ -121,7 +121,7 @@ export function ChatPage() {
         if (!isCancelled) setProfilesById(map);
       }
 
-      const msgIds = msgs.map((m) ***REMOVED*** m.id);
+      const msgIds = msgs.map((m) => m.id);
       if (msgIds.length) {
         const { data: aData } = await supabase
           .from("chat_attachments")
@@ -137,12 +137,12 @@ export function ChatPage() {
       }
     }
     loadThreadData();
-    return () ***REMOVED*** {
+    return () => {
       isCancelled = true;
     };
   }, [activeThreadId]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     let isCancelled = false;
     async function loadAvatarUrls() {
       const entries = Array.from(profilesById.entries());
@@ -152,7 +152,7 @@ export function ChatPage() {
       }
       const resolved = new Map<string, string>();
       await Promise.all(
-        entries.map(async ([userId, p]) ***REMOVED*** {
+        entries.map(async ([userId, p]) => {
           const avatarPathOrUrl = p.avatar_url;
           if (!avatarPathOrUrl) return;
           if (avatarPathOrUrl.startsWith("http://") || avatarPathOrUrl.startsWith("https://")) {
@@ -166,12 +166,12 @@ export function ChatPage() {
       if (!isCancelled) setAvatarUrlsByUserId(resolved);
     }
     void loadAvatarUrls();
-    return () ***REMOVED*** {
+    return () => {
       isCancelled = true;
     };
   }, [profilesById]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     let isCancelled = false;
     async function loadAttachmentUrls() {
       const allAttachments = Array.from(attachments.values()).flat();
@@ -181,7 +181,7 @@ export function ChatPage() {
       }
       const resolved = new Map<string, string>();
       await Promise.all(
-        allAttachments.map(async (att) ***REMOVED*** {
+        allAttachments.map(async (att) => {
           const { data } = await supabase.storage.from("chat-attachments").createSignedUrl(att.storage_path, 60 * 60);
           if (data?.signedUrl) resolved.set(att.storage_path, data.signedUrl);
         }),
@@ -189,19 +189,19 @@ export function ChatPage() {
       if (!isCancelled) setAttachmentUrlsByPath(resolved);
     }
     void loadAttachmentUrls();
-    return () ***REMOVED*** {
+    return () => {
       isCancelled = true;
     };
   }, [attachments]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (!activeThreadId) return;
     const channel = supabase
       .channel(`chat:${activeThreadId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_messages", filter: `thread_id=eq.${activeThreadId}` },
-        async () ***REMOVED*** {
+        async () => {
           const { data, error: msgError } = await supabase
             .from("chat_messages")
             .select("id,thread_id,sender_id,body,created_at,deleted_at,deleted_by")
@@ -215,7 +215,7 @@ export function ChatPage() {
           const msgs = (data ?? []) as ChatMessage[];
           setMessages(msgs);
 
-          const senderIds = Array.from(new Set(msgs.map((m) ***REMOVED*** m.sender_id)));
+          const senderIds = Array.from(new Set(msgs.map((m) => m.sender_id)));
           if (senderIds.length) {
             const { data: pData } = await supabase
               .from("profiles")
@@ -226,7 +226,7 @@ export function ChatPage() {
             setProfilesById(map);
           }
 
-          const msgIds = msgs.map((m) ***REMOVED*** m.id);
+          const msgIds = msgs.map((m) => m.id);
           if (msgIds.length) {
             const { data: aData } = await supabase
               .from("chat_attachments")
@@ -244,12 +244,12 @@ export function ChatPage() {
       )
       .subscribe();
 
-    return () ***REMOVED*** {
+    return () => {
       supabase.removeChannel(channel);
     };
   }, [activeThreadId]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (!uploadFile) {
       setUploadImagePreviewUrl(null);
       return;
@@ -261,18 +261,18 @@ export function ChatPage() {
     }
     const objectUrl = URL.createObjectURL(uploadFile);
     setUploadImagePreviewUrl(objectUrl);
-    return () ***REMOVED*** URL.revokeObjectURL(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
   }, [uploadFile]);
 
-  useEffect(() ***REMOVED*** {
+  useEffect(() => {
     if (!fullscreenImage) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key ***REMOVED*** "Escape") {
+      if (event.key === "Escape") {
         setFullscreenImage(null);
       }
     }
     window.addEventListener("keydown", onKeyDown);
-    return () ***REMOVED*** window.removeEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [fullscreenImage]);
 
   async function send() {
@@ -391,9 +391,9 @@ export function ChatPage() {
       ) : (
         <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-card dark:border-slate-700/90 dark:bg-slate-900 dark:shadow-card-dark">
           <div className="h-[55vh] space-y-3 overflow-auto bg-gradient-to-b from-slate-50/90 to-white p-4 dark:from-slate-900 dark:to-slate-950">
-            {messages.map((m) ***REMOVED*** {
+            {messages.map((m) => {
               const sender = profilesById.get(m.sender_id);
-              const isMine = profile?.id ***REMOVED*** m.sender_id;
+              const isMine = profile?.id === m.sender_id;
               const msgAttachments = attachments.get(m.id) ?? [];
               const avatarUrl = avatarUrlsByUserId.get(m.sender_id);
               const initials = getInitials(sender?.full_name);
@@ -428,7 +428,7 @@ export function ChatPage() {
                           className="btn-secondary btn-sm text-red-700 hover:border-red-200 hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:hover:border-red-900/60 dark:hover:bg-red-950/40"
                           type="button"
                           disabled={busy}
-                          onClick={() ***REMOVED*** softDelete(m)}
+                          onClick={() => softDelete(m)}
                         >
                           Löschen
                         </button>
@@ -444,7 +444,7 @@ export function ChatPage() {
                   </div>
                   {msgAttachments.length ? (
                     <div className="mt-2 flex flex-col gap-1">
-                      {msgAttachments.map((a) ***REMOVED*** {
+                      {msgAttachments.map((a) => {
                         const signedAttachmentUrl = attachmentUrlsByPath.get(a.storage_path);
                         const isImage = isImageMimeType(a.mime_type);
                         const fileName = a.storage_path.split("/").slice(-1)[0] ?? "Anhang";
@@ -453,7 +453,7 @@ export function ChatPage() {
                             {isImage && signedAttachmentUrl ? (
                               <button
                                 className="block w-fit"
-                                onClick={() ***REMOVED*** setFullscreenImage({ url: signedAttachmentUrl, name: fileName, attachment: a })}
+                                onClick={() => setFullscreenImage({ url: signedAttachmentUrl, name: fileName, attachment: a })}
                               >
                                 <img
                                   className="max-h-56 rounded border border-slate-200 dark:border-slate-600"
@@ -465,7 +465,7 @@ export function ChatPage() {
                             <button
                               className="btn-secondary btn-sm mt-2 text-left"
                               type="button"
-                              onClick={() ***REMOVED*** downloadAttachment(a)}
+                              onClick={() => downloadAttachment(a)}
                             >
                               {isImage ? "Download" : `Datei: ${fileName} (${Math.ceil(a.size_bytes / 1024)} KB)`}
                             </button>
@@ -486,7 +486,7 @@ export function ChatPage() {
                 className="input min-h-[5rem] resize-y"
                 placeholder="Nachricht schreiben…"
                 value={newMessage}
-                onChange={(e) ***REMOVED*** setNewMessage(e.target.value)}
+                onChange={(e) => setNewMessage(e.target.value)}
                 rows={3}
               />
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -494,7 +494,7 @@ export function ChatPage() {
                   className="text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-900 hover:file:bg-brand-200 dark:text-slate-400 dark:file:bg-brand-900/50 dark:file:text-brand-100 dark:hover:file:bg-brand-800/60"
                   type="file"
                   accept="*/*"
-                  onChange={(e) ***REMOVED*** setUploadFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                 />
                 <button className="btn-primary md:min-w-[7rem]" type="button" disabled={!canSend || busy} onClick={send}>
                   {busy ? "Sende…" : "Senden"}
@@ -518,13 +518,13 @@ export function ChatPage() {
       {fullscreenImage ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
-          onClick={() ***REMOVED*** setFullscreenImage(null)}
+          onClick={() => setFullscreenImage(null)}
         >
-          <div className="relative flex max-h-[95vh] max-w-[95vw] flex-col items-center gap-4" onClick={(e) ***REMOVED*** e.stopPropagation()}>
+          <div className="relative flex max-h-[95vh] max-w-[95vw] flex-col items-center gap-4" onClick={(e) => e.stopPropagation()}>
             <button
               className="btn-secondary self-end bg-white/95 dark:bg-slate-800/95"
               type="button"
-              onClick={() ***REMOVED*** setFullscreenImage(null)}
+              onClick={() => setFullscreenImage(null)}
             >
               Schließen
             </button>
@@ -533,7 +533,7 @@ export function ChatPage() {
               src={fullscreenImage.url}
               alt={fullscreenImage.name}
             />
-            <button className="btn-primary" type="button" onClick={() ***REMOVED*** downloadAttachment(fullscreenImage.attachment)}>
+            <button className="btn-primary" type="button" onClick={() => downloadAttachment(fullscreenImage.attachment)}>
               Download
             </button>
           </div>

@@ -37,9 +37,9 @@ async function enforceRateLimit(adminClient: any, actorId: string) {
   }
 }
 
-serve(async (req) ***REMOVED*** {
+serve(async (req) => {
   const corsHeaders = buildCorsHeaders(req.headers.get("Origin"));
-  if (req.method ***REMOVED*** "OPTIONS") {
+  if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
@@ -66,7 +66,7 @@ serve(async (req) ***REMOVED*** {
       });
     }
 
-    const body = await req.json().catch(() ***REMOVED*** ({}));
+    const body = await req.json().catch(() => ({}));
     const targetUserId = String((body as any).user_id ?? "");
     if (!targetUserId) {
       return new Response(JSON.stringify({ error: "user_id fehlt." }), {
@@ -103,9 +103,9 @@ serve(async (req) ***REMOVED*** {
       });
     }
 
-    const isAdmin = callerProfile.role ***REMOVED*** "admin";
-    const isSuperuser = callerProfile.role ***REMOVED*** "superuser";
-    const sameTeam = callerProfile.team_id && targetProfile.team_id && callerProfile.team_id ***REMOVED*** targetProfile.team_id;
+    const isAdmin = callerProfile.role === "admin";
+    const isSuperuser = callerProfile.role === "superuser";
+    const sameTeam = callerProfile.team_id && targetProfile.team_id && callerProfile.team_id === targetProfile.team_id;
 
     if (!isAdmin && !(isSuperuser && sameTeam)) {
       return new Response(JSON.stringify({ error: "Keine Berechtigung, diesen Benutzer zu löschen." }), {
@@ -114,7 +114,7 @@ serve(async (req) ***REMOVED*** {
       });
     }
 
-    if (targetProfile.role ***REMOVED*** "admin" && !isAdmin) {
+    if (targetProfile.role === "admin" && !isAdmin) {
       return new Response(JSON.stringify({ error: "Admins können nur von Admins gelöscht werden." }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
